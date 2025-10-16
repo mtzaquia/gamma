@@ -1,0 +1,146 @@
+{
+  "id": "gamma-sample",
+  "defaults": {
+    "font": "font/body",
+    "primaryTextColor": "color/text-primary",
+    "secondaryTextColor": "color/accent"
+  },
+  "colors": {
+    "color/background": {
+      "name": "Background",
+      "group": "Surface",
+      "description": "App background",
+      "modes": {
+        "day": { "hex": "#F3F5FA", "alpha": 1 },
+        "night": { "hex": "#111319", "alpha": 1 }
+      }
+    },
+    "color/surface": {
+      "name": "Surface",
+      "group": "Surface",
+      "description": "Elevated surface",
+      "modes": {
+        "day": { "hex": "#FFFFFF", "alpha": 1 },
+        "night": { "hex": "#20232C", "alpha": 1 }
+      }
+    },
+    "color/text-primary": {
+      "name": "Primary text",
+      "group": "Text",
+      "description": "Primary foreground",
+      "modes": {
+        "day": { "hex": "#171A21", "alpha": 1 },
+        "night": { "hex": "#F6F7FB", "alpha": 1 }
+      }
+    },
+    "color/text-secondary": {
+      "name": "Secondary text",
+      "group": "Text",
+      "description": "Secondary foreground",
+      "modes": {
+        "day": { "hex": "#626A7A", "alpha": 1 },
+        "night": { "hex": "#AEB5C5", "alpha": 1 }
+      }
+    },
+    "color/accent": {
+      "name": "Accent",
+      "group": "Brand",
+      "description": "Brand accent",
+      "modes": {
+        "day": { "hex": "#5B4CF0", "alpha": 1 },
+        "night": { "hex": "#9A91FF", "alpha": 1 }
+      }
+    }
+  },
+  "fonts": {
+    "font/display": {
+      "name": "Display",
+      "group": "Typography",
+      "description": "ios:title1",
+      "modes": {
+        "latin": {
+          "fontSize": 34,
+          "fontName": "NotoSans-Regular",
+          "lineHeight": 41,
+          "letterSpacing": -1,
+          "textCase": "ORIGINAL"
+        },
+        "arabic": {
+          "fontSize": 34,
+          "fontName": "NotoSansArabic-Regular",
+          "lineHeight": 43,
+          "letterSpacing": 0,
+          "textCase": "ORIGINAL"
+        }
+      }
+    },
+    "font/body": {
+      "name": "Body",
+      "group": "Typography",
+      "description": "ios:body",
+      "modes": {
+        "latin": {
+          "fontSize": 17,
+          "fontName": "NotoSans-Regular",
+          "lineHeight": 24,
+          "letterSpacing": 0,
+          "textCase": "ORIGINAL"
+        },
+        "arabic": {
+          "fontSize": 17,
+          "fontName": "NotoSansArabic-Regular",
+          "lineHeight": 26,
+          "letterSpacing": 0,
+          "textCase": "ORIGINAL"
+        }
+      }
+    },
+    "font/caption": {
+      "name": "Caption",
+      "group": "Typography",
+      "description": "ios:caption1",
+      "modes": {
+        "latin": {
+          "fontSize": 13,
+          "fontName": "NotoSans-Regular",
+          "lineHeight": 18,
+          "letterSpacing": 2,
+          "textCase": "UPPER"
+        },
+        "arabic": {
+          "fontSize": 13,
+          "fontName": "NotoSansArabic-Regular",
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "textCase": "ORIGINAL"
+        }
+      }
+    }
+  },
+  "units": {
+    "space/small": {
+      "name": "Small",
+      "group": "Spacing",
+      "description": "Small spacing",
+      "modes": { "compact": 8, "regular": 12 }
+    },
+    "space/medium": {
+      "name": "Medium",
+      "group": "Spacing",
+      "description": "Medium spacing",
+      "modes": { "compact": 16, "regular": 24 }
+    },
+    "space/large": {
+      "name": "Large",
+      "group": "Spacing",
+      "description": "Large spacing",
+      "modes": { "compact": 24, "regular": 36 }
+    },
+    "radius/card": {
+      "name": "Card radius",
+      "group": "Radius",
+      "description": "Card corner radius",
+      "modes": { "compact": 20, "regular": 28 }
+    }
+  }
+}

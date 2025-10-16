@@ -1,0 +1,42 @@
+{
+  "id": "modifier-resource",
+  "defaults": {
+    "font": "body",
+    "primaryTextColor": "text"
+  },
+  "colors": {
+    "text": {
+      "name": "Text",
+      "group": "content",
+      "description": "",
+      "modes": {
+        "light": { "hex": "#111111", "alpha": 1 },
+        "dark": { "hex": "#EEEEEE", "alpha": 1 }
+      }
+    }
+  },
+  "fonts": {
+    "body": {
+      "name": "Body",
+      "group": "typography",
+      "description": "ios:body",
+      "modes": {
+        "default": {
+          "fontSize": 16,
+          "fontName": "Helvetica",
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "textCase": "ORIGINAL"
+        }
+      }
+    }
+  },
+  "units": {
+    "spacing": {
+      "name": "Spacing",
+      "group": "spacing",
+      "description": "",
+      "modes": { "default": 12 }
+    }
+  }
+}
