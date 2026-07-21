@@ -142,6 +142,25 @@ struct CodeGeneratorTests {
         }
     }
 
+    @Test("Generation accepts empty token groups")
+    func emptyTokenGroups() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let document = validThemeDocument(
+                units: ["space/default": token(group: "")],
+                colorGroup: "",
+                fontGroup: ""
+            )
+            try write(document, to: input)
+
+            let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
+
+            #expect(source.contains("static let colorDefault"))
+            #expect(source.contains("static let fontDefault"))
+            #expect(!source.contains("struct SpacingAlias: UnitAlias"))
+        }
+    }
+
     @Test("Generation rejects a malformed theme through the shared schema")
     func malformedThemeFailsGeneration() throws {
         try withTemporaryDirectory { directory in
@@ -244,10 +263,12 @@ struct CodeGeneratorTests {
     private func validThemeDocument(
         id: String = "codegen-test",
         colors: [String: Any] = [:],
-        units: [String: Any]? = nil
+        units: [String: Any]? = nil,
+        colorGroup: String = "Test",
+        fontGroup: String = "Typography"
     ) -> [String: Any] {
         var colors = colors
-        colors["color/default"] = colorToken()
+        colors["color/default"] = colorToken(group: colorGroup)
         let units = units ?? ["space/default": token(group: "Spacing")]
         return [
             "id": id,
@@ -256,14 +277,14 @@ struct CodeGeneratorTests {
                 "primaryTextColor": "color/default",
             ],
             "colors": colors,
-            "fonts": ["font/default": fontToken()],
+            "fonts": ["font/default": fontToken(group: fontGroup)],
             "units": units,
         ]
     }
 
-    private func colorToken() -> [String: Any] {
+    private func colorToken(group: String = "Test") -> [String: Any] {
         token(
-            group: "Test",
+            group: group,
             modes: [
                 "light": ["hex": "#000000", "alpha": 1],
                 "dark": ["hex": "#FFFFFF", "alpha": 1],
@@ -271,9 +292,9 @@ struct CodeGeneratorTests {
         )
     }
 
-    private func fontToken() -> [String: Any] {
+    private func fontToken(group: String = "Typography") -> [String: Any] {
         token(
-            group: "Typography",
+            group: group,
             modes: [
                 "default": [
                     "fontSize": 16,

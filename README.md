@@ -41,7 +41,7 @@ dependencies: [
 
 ## Five-minute start
 
-Add an `App.theme.json` file to the app target, with target membership enabled, then attach `GammaBuildPlugin` under **Build Phases → Run Build Tool Plug-ins**. The plugin validates the theme and turns its filename and token keys into Swift declarations during the build. If it cannot find a `*.theme.json` or `.xcassets` input in that target, it emits a build warning with the likely filename and target-membership fixes.
+Add an `App.theme.json` file to the app target, with target membership enabled, then attach `GammaBuildPlugin` under **Build Phases → Run Build Tool Plug-ins**. The plugin validates the theme and turns its filename and token keys into Swift declarations during the build. It searches target folders recursively and fails the build with filename and target-membership guidance if it cannot find a `*.theme.json` input.
 
 Install the generated resource at the root of the app:
 

@@ -61,10 +61,12 @@ private func commands(
     toolURL: URL
 ) throws -> [Command] {
     let inputs = discoveredInputs(in: inputURLs)
-    guard !inputs.isEmpty else {
-        Diagnostics.warning(
-            "GammaBuildPlugin found no .theme.json or .xcassets inputs. "
-                + "Check the filenames and target membership, or remove the plug-in from this target."
+    guard inputs.contains(where: { $0.template == .tokens }) else {
+        Diagnostics.error(
+            "GammaBuildPlugin found no *.theme.json input after searching the target's files "
+                + "and folders recursively. Add a file ending exactly in .theme.json, then enable "
+                + "its Xcode target membership or declare it as a target resource in Package.swift. "
+                + "Otherwise, remove the plug-in from this target."
         )
         return []
     }
@@ -91,22 +93,53 @@ private func commands(
 }
 
 private func discoveredInputs(in urls: [URL]) -> [GeneratorInput] {
-    urls.compactMap { url in
-        if url.lastPathComponent.hasSuffix(".theme.json") {
-            return GeneratorInput(url: url, template: .tokens)
+    var inputsByPath: [String: GeneratorInput] = [:]
+
+    for url in urls {
+        for input in discoveredInputs(at: url) {
+            let path = input.url.standardizedFileURL.path
+            inputsByPath["\(input.template.rawValue):\(path)"] = input
         }
-        if url.pathExtension.caseInsensitiveCompare("xcassets") == .orderedSame {
-            return GeneratorInput(url: url, template: .assets)
-        }
-        return nil
     }
-    .sorted {
+
+    return inputsByPath.values.sorted {
         if $0.url.path == $1.url.path {
             $0.template.rawValue < $1.template.rawValue
         } else {
             $0.url.path < $1.url.path
         }
     }
+}
+
+private func discoveredInputs(at url: URL) -> [GeneratorInput] {
+    if let input = generatorInput(for: url) {
+        return [input]
+    }
+
+    guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+          let enumerator = FileManager.default.enumerator(
+              at: url,
+              includingPropertiesForKeys: [.isDirectoryKey],
+              options: [.skipsHiddenFiles, .skipsPackageDescendants]
+          )
+    else {
+        return []
+    }
+
+    return enumerator.compactMap { element in
+        guard let nestedURL = element as? URL else { return nil }
+        return generatorInput(for: nestedURL)
+    }
+}
+
+private func generatorInput(for url: URL) -> GeneratorInput? {
+    if url.lastPathComponent.hasSuffix(".theme.json") {
+        return GeneratorInput(url: url, template: .tokens)
+    }
+    if url.pathExtension.caseInsensitiveCompare("xcassets") == .orderedSame {
+        return GeneratorInput(url: url, template: .assets)
+    }
+    return nil
 }
 
 private struct GeneratorInput {

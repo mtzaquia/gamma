@@ -26,9 +26,9 @@ For a Swift package target:
 
 For an Xcode target, add `GammaBuildPlugin` under **Build Phases → Run Build Tool Plug-ins**.
 
-The plugin discovers files ending exactly in `.theme.json` and directories with an `.xcassets` extension in that target. Resource declarations remain necessary for SwiftPM to bundle those inputs at runtime. The plugin writes Swift into its work directory and passes those files directly to the compiler. Generated files do not appear in the project navigator and should not be committed.
+The plugin recursively discovers files ending exactly in `.theme.json` and directories with an `.xcassets` extension in that target, including inputs inside nested folders. Resource declarations remain necessary for SwiftPM to bundle those inputs at runtime. The plugin writes Swift into its work directory and passes those files directly to the compiler. Generated files do not appear in the project navigator and should not be committed.
 
-If the plug-in is attached but discovers neither input kind, it emits a build warning with the likely filename and target-membership fixes. A recognized but malformed theme reaches the generator and fails the build with schema diagnostics.
+If the plug-in does not discover a `*.theme.json` input, it fails the build with the likely filename and target-membership fixes, even when it finds an asset catalogue. A recognized but malformed theme reaches the generator and fails the build with schema diagnostics.
 
 All `*.theme.json` files in one target are treated as variants of one theme family. Their existing JSON format does not change. The plugin generates one token file and checks that every variant defines the same alias contract, failing with both paths when keys or unit groups drift.
 

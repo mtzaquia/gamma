@@ -10,7 +10,7 @@ A theme is a JSON document decoded as `RawTheme`. Token keys are stable identifi
 | `fonts` | Typography tokens keyed by alias. |
 | `units` | Numeric spacing, sizing, or radius tokens keyed by alias. |
 
-Every color, font, and unit entry contains `name`, `group`, `description`, and `modes`. The first three fields are required by the schema; `name` and `group` must be non-empty. A description may be empty.
+Every color, font, and unit entry contains `name`, `group`, `description`, and `modes`. The first three fields are required by the schema; `name` must be non-empty, while `group` and `description` may be empty.
 
 Each successfully decoded payload receives a separate runtime identity. Replacing server data therefore updates SwiftUI and resolution caches even when the logical `id` remains unchanged.
 
@@ -83,7 +83,7 @@ The description may include an iOS text-style marker so Dynamic Type uses the ma
 
 ## Units
 
-Units are finite numeric values. A group produces the generated alias type; all units in that group share it.
+Units are finite numeric values. A non-empty group produces the generated alias type; all units in that group share it. Units with an empty group remain valid but do not receive a grouped generated alias.
 
 ```json
 "space/medium": {
@@ -102,7 +102,7 @@ This group generates `Theme.SpacingAlias`; the token itself is available as `.sp
 
 `RawTheme` rejects malformed schema during decoding. Validation checks:
 
-- non-empty theme IDs, token keys, names, and groups;
+- non-empty theme IDs, token keys, and names;
 - defaults that reference existing tokens;
 - at least one mode for every token;
 - color format and alpha bounds;

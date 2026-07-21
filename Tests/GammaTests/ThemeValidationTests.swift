@@ -96,11 +96,20 @@ struct ThemeValidationTests {
             #expect(context.debugDescription.contains("fonts.body.modes.default.fontName"))
             #expect(context.debugDescription.contains("fonts.body.modes.default.fontSize"))
             #expect(context.debugDescription.contains("fonts.body.modes.default.lineHeight"))
-            #expect(context.debugDescription.contains("units.spacing.group"))
             #expect(context.debugDescription.contains("units.spacing.modes"))
         } catch {
             Issue.record("Unexpected decoding error: \(error)")
         }
+    }
+
+    @Test("Empty token groups are accepted")
+    func emptyTokenGroupsAreAccepted() throws {
+        let json = Self.validThemeJSON
+            .replacingOccurrences(of: #""group": "content""#, with: #""group": """#)
+            .replacingOccurrences(of: #""group": "typography""#, with: #""group": """#)
+            .replacingOccurrences(of: #""group": "spacing""#, with: #""group": """#)
+
+        _ = try decode(json)
     }
 
     @Test("Unknown font text cases are rejected")

@@ -281,7 +281,6 @@ package extension RawTheme {
             validateTokenMetadata(
                 token: token,
                 name: color.name,
-                group: color.group,
                 modesAreEmpty: color.modes.isEmpty,
                 kind: "colors",
                 issues: &issues
@@ -304,7 +303,6 @@ package extension RawTheme {
             validateTokenMetadata(
                 token: token,
                 name: font.name,
-                group: font.group,
                 modesAreEmpty: font.modes.isEmpty,
                 kind: "fonts",
                 issues: &issues
@@ -336,7 +334,6 @@ package extension RawTheme {
             validateTokenMetadata(
                 token: token,
                 name: unit.name,
-                group: unit.group,
                 modesAreEmpty: unit.modes.isEmpty,
                 kind: "units",
                 issues: &issues
@@ -371,7 +368,6 @@ package extension RawTheme {
     private func validateTokenMetadata(
         token: String,
         name: String,
-        group: String,
         modesAreEmpty: Bool,
         kind: String,
         issues: inout [ThemeValidationIssue]
@@ -382,9 +378,6 @@ package extension RawTheme {
         }
         if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             issues.append(.init(path: "\(path).name", message: "token name must not be empty"))
-        }
-        if group.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            issues.append(.init(path: "\(path).group", message: "token group must not be empty"))
         }
         if modesAreEmpty {
             issues.append(.init(path: "\(path).modes", message: "token must define at least one mode"))

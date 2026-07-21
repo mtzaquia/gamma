@@ -35,7 +35,7 @@ For an Xcode app target, add `https://github.com/mtzaquia/Gamma.git` with the **
 2. Add the theme file with target membership enabled so it is copied into the app bundle.
 3. Add `GammaBuildPlugin` under **Build Phases → Run Build Tool Plug-ins** and approve the plug-in when Xcode asks.
 
-The plug-in warns when it is attached to a target but finds neither a file ending exactly in `.theme.json` nor an `.xcassets` catalogue. Treat that warning as a target-membership or filename problem; generation should not silently disappear from the build.
+The plug-in searches the target's folders recursively and fails the build when it cannot find a file ending exactly in `.theme.json`, even when it finds an `.xcassets` catalogue. Treat that error as a target-membership or filename problem; generation should not silently disappear from the build.
 
 ## Create a theme
 
