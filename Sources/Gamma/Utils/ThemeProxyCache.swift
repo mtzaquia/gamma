@@ -60,6 +60,10 @@ final class BoundedCache<Key: Hashable, Value> {
         self.countLimit = countLimit
     }
 
+    // Work around swiftlang/swift#90385.
+    @_optimize(none)
+    deinit {}
+
     subscript(key: Key) -> Value? {
         get {
             guard let value = storage[key] else { return nil }
