@@ -97,7 +97,7 @@ Server themes use the same runtime path: the app downloads and stores the JSON a
 
 - [Getting started](docs/getting-started.md) — install a theme and render the first tokens.
 - [Theme format](docs/themes.md) — defaults, colors, fonts, units, and validation rules.
-- [Mode resolution](docs/modes.md) — map layout direction and size class to theme modes.
+- [Mode resolution](docs/modes.md) — map appearance, layout direction, and size class to theme modes.
 - [Using tokens](docs/tokens.md) — colors, typography, units, assets, and default styling.
 - [Code generation](docs/code-generation.md) — build and command plugins, CLI use, naming, and troubleshooting.
 - [Overrides](docs/overrides.md) — replace token modes inside one view subtree.

@@ -77,6 +77,30 @@ struct ThemeModeResolverTests {
         #expect(regularModes.unit == "regular")
     }
 
+    @Test("Custom family modes are selected dynamically by typed family")
+    func customFamilyModesAreDynamicallySelected() {
+        let resolver = ExtensionModeResolver()
+        let lightModes = resolver.resolve(
+            in: ThemeModeContext(
+                colorScheme: .light,
+                layoutDirection: .leftToRight,
+                horizontalSizeClass: .compact
+            )
+        )
+        let darkModes = resolver.resolve(
+            in: ThemeModeContext(
+                colorScheme: .dark,
+                layoutDirection: .leftToRight,
+                horizontalSizeClass: .regular
+            )
+        )
+
+        #expect(lightModes[Theme.TestGradients.self] == "day")
+        #expect(darkModes[Theme.TestGradients.self] == "night")
+        #expect(lightModes[TestMotion.self] == "reduced")
+        #expect(darkModes[TestMotion.self] == "expressive")
+    }
+
     @Test("Type-erased resolvers compare using resolver state")
     func typeErasedResolversCompareUsingResolverState() {
         let compact = AnyThemeModeResolver(ResponsiveModeResolver(fallbackUnitMode: "compact"))
@@ -94,6 +118,7 @@ struct ThemeModeResolverTests {
             themeInstanceID: themeID,
             overrideHash: 0,
             modeResolver: AnyThemeModeResolver(ResponsiveModeResolver()),
+            colorScheme: .light,
             layoutDirection: .leftToRight,
             horizontalSizeClass: .compact
         )
@@ -101,18 +126,29 @@ struct ThemeModeResolverTests {
             themeInstanceID: themeID,
             overrideHash: 0,
             modeResolver: AnyThemeModeResolver(ResponsiveModeResolver()),
+            colorScheme: .light,
             layoutDirection: .leftToRight,
             horizontalSizeClass: .regular
+        )
+        let dark = ThemeCacheScope(
+            themeInstanceID: themeID,
+            overrideHash: 0,
+            modeResolver: AnyThemeModeResolver(ResponsiveModeResolver()),
+            colorScheme: .dark,
+            layoutDirection: .leftToRight,
+            horizontalSizeClass: .compact
         )
         let replacementTheme = ThemeCacheScope(
             themeInstanceID: UUID(),
             overrideHash: 0,
             modeResolver: AnyThemeModeResolver(ResponsiveModeResolver()),
+            colorScheme: .light,
             layoutDirection: .leftToRight,
             horizontalSizeClass: .compact
         )
 
         #expect(compact != regular)
+        #expect(compact != dark)
         #expect(compact != replacementTheme)
         #expect(
             ThemeTokenCacheKey(scope: compact, alias: "background")
@@ -216,6 +252,25 @@ private struct ResponsiveModeResolver: ThemeModeResolving {
             unit: unitMode
         )
     }
+}
+
+private struct ExtensionModeResolver: ThemeModeResolving {
+    func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
+        var modes = ResolvedThemeModes(
+            colors: .init(light: "light", dark: "dark"),
+            fonts: .init(primary: "default"),
+            unit: "default"
+        )
+        modes[Theme.TestGradients.self] = context.colorScheme == .dark ? "night" : "day"
+        modes[TestMotion.self] = context.horizontalSizeClass == .compact
+            ? "reduced"
+            : "expressive"
+        return modes
+    }
+}
+
+nonisolated private enum TestMotion: ThemeExtensionKey {
+    static let key = "motion"
 }
 
 private struct SpacingAlias: UnitAlias {

@@ -5,7 +5,7 @@ Mode names belong to the design system, not the library. A resolver translates t
 ```swift
 struct AppThemeModeResolver: ThemeModeResolving {
   func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-    ResolvedThemeModes(
+    var modes = ResolvedThemeModes(
       colors: ThemeColorModeSelection(light: "day", dark: "night"),
       fonts: context.layoutDirection == .rightToLeft
         ? ThemeFontModeSelection(primary: "arabic", cascades: ["latin"])
@@ -14,6 +14,13 @@ struct AppThemeModeResolver: ThemeModeResolving {
         ? "regular"
         : "compact"
     )
+    modes[Theme.Gradients.self] = context.colorScheme == .dark
+      ? "night"
+      : "day"
+    modes[Theme.Motion.self] = context.horizontalSizeClass == .compact
+      ? "reduced"
+      : "expressive"
+    return modes
   }
 }
 ```
@@ -34,10 +41,11 @@ AppRoot()
 
 | Value | Typical use |
 | --- | --- |
+| `colorScheme` | Choose an appearance-specific mode for a custom family. A family may ignore it. |
 | `layoutDirection` | Choose font priority and cascade order for LTR and RTL content. |
 | `horizontalSizeClass` | Choose compact and regular unit modes. It may be `nil`. |
 
-Color scheme is not part of the context. The resolver selects a light/dark pair, and the returned `Color` follows the system appearance dynamically.
+Built-in colors still use a light/dark pair so one returned `Color` can follow system appearance dynamically. Custom families are different: the resolver chooses one arbitrary mode name for each family. That choice may use color scheme, size class, layout direction, or simply be fixed.
 
 ## Selections
 
@@ -50,8 +58,16 @@ One resolution returns all token policies together.
 | `fonts.primary` | Font mode that supplies metrics and the primary face. |
 | `fonts.cascades` | Ordered fallback faces appended to the font descriptor. |
 | `unit` | Unit mode used for spacing, sizing, and radius aliases. |
+| `modes[Theme.SomeFamily.self]` | One arbitrary mode selected for that custom family. |
 
 Every selected mode must exist on every token of that kind. Missing selections produce a consolidated diagnostic instead of silently changing the resolver policy per token.
+
+Custom selections are keyed by the generated family type, not its JSON string. This keeps unrelated families distinct even when they use the same mode names. Every registered family needs a selection, but it does not need appearance variants:
+
+```swift
+modes[Theme.Gradients.self] = context.colorScheme == .dark ? "night" : "day"
+modes[Theme.Motion.self] = "default"
+```
 
 ## Standard resolver
 
@@ -67,7 +83,7 @@ The standard resolver does not vary fonts or units with layout direction or size
 
 ## SwiftUI updates
 
-`@ThemeReader` participates in SwiftUI's dynamic-property lifecycle. It reads the resolver, layout direction, size class, and active theme from one environment snapshot during view evaluation. Changing one of those values invalidates the consuming view through SwiftUI's normal dependency tracking.
+`@ThemeReader` participates in SwiftUI's dynamic-property lifecycle. It reads the resolver, color scheme, layout direction, size class, and active theme from one environment snapshot during view evaluation. Changing one of those values invalidates the consuming view through SwiftUI's normal dependency tracking.
 
 Keep `resolve(in:)` cheap, deterministic, and free of side effects. `@ThemeReader` captures one resolver result during each DynamicProperty update and every token read in that body evaluation uses the same snapshot. SwiftUI may still evaluate a body more than once. Do not capture environment values inside the resolver; use the supplied context.
 
@@ -96,8 +112,8 @@ Passing a resolver with a new identity invalidates its resolved token scope.
 
 Resolution is main-actor-bound because it runs inside SwiftUI's environment update. Client resolvers need no `nonisolated`, `Sendable`, or actor annotations.
 
-Color scheme and Dynamic Type do not need to be resolver inputs. Dynamic `UIColor` values follow appearance immediately, and the font modifier rebuilds its scaled concrete font when `dynamicTypeSize` changes. Layout direction and horizontal size class remain resolver inputs, so either change creates a fresh resolution snapshot; the standard resolver keeps returning `default`, while custom resolvers may choose different modes.
+Color scheme, layout direction, and horizontal size class are resolver inputs, so a change creates a fresh resolution snapshot. Built-in dynamic `UIColor` values still follow appearance directly; exposing color scheme lets consumer-defined families opt into appearance-specific selection when appropriate. Dynamic Type remains outside the resolver because the font modifier rebuilds its scaled concrete font when `dynamicTypeSize` changes.
 
-Resolved token caches use the decoded theme identity, composed override identity, resolver identity, and relevant environment context. Returned mode-name strings and color scheme are not separate cache-key components. Concrete font caches include Dynamic Type size. All caches are bounded.
+Resolved token caches use the decoded theme identity, composed override identity, resolver identity, and relevant environment context. Returned mode-name strings are not separate cache-key components. Concrete font caches include Dynamic Type size. All caches are bounded.
 
 Next: [Using tokens](tokens.md)

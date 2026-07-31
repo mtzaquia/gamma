@@ -79,19 +79,21 @@ struct ThemeExtensionTests {
         })
     }
 
-    @Test("ThemeProxy returns the registered extension's concrete token type")
-    func proxyReturnsConcreteToken() async throws {
+    @Test("ThemeProxy returns the resolver-selected concrete mode type")
+    func proxyReturnsSelectedConcreteMode() async throws {
         let rawTheme = try decode(Self.themeJSON)
-        var resolvedName: String?
+        var resolvedStops: [String]?
         var installedExtensionCount = 0
-        let view = ExtensionProbe { token, extensionCount in
-            resolvedName = token?.name
+        let view = ExtensionProbe { mode, extensionCount in
+            resolvedStops = mode?.stops
             installedExtensionCount = extensionCount
         }
             .theme(
                 rawTheme,
+                modeResolver: TestExtensionModeResolver(),
                 extensions: [ThemeExtensionRegistration(Theme.TestGradients.self)]
             )
+            .environment(\.colorScheme, .dark)
         let hostingController = UIHostingController(rootView: view)
         let window = UIWindow(frame: UIScreen.main.bounds)
 
@@ -100,9 +102,37 @@ struct ThemeExtensionTests {
         window.layoutIfNeeded()
         await Task.yield()
 
-        #expect(resolvedName == "Hero")
+        #expect(resolvedStops == ["color/end", "color/start"])
         #expect(installedExtensionCount == 1)
         window.isHidden = true
+    }
+
+    @Test("Registered extensions validate the resolver-selected mode")
+    func registeredExtensionModeIsValidated() throws {
+        let theme = try decode(Self.themeJSON)
+        var missingSelection = ResolvedThemeModes(
+            colors: .init(light: "light", dark: "dark"),
+            fonts: .init(primary: "default"),
+            unit: "default"
+        )
+        let registration = ThemeExtensionRegistration(Theme.TestGradients.self)
+
+        let selectionIssues = theme.validationIssues(
+            resolvedModes: missingSelection,
+            extensions: [registration]
+        )
+        #expect(selectionIssues.contains {
+            $0.path == "resolver.extensions.gradients"
+        })
+
+        missingSelection[Theme.TestGradients.self] = "highContrast"
+        let modeIssues = theme.validationIssues(
+            resolvedModes: missingSelection,
+            extensions: [registration]
+        )
+        #expect(modeIssues.contains {
+            $0.path == "gradients.gradient/hero.modes.highContrast"
+        })
     }
 
     private func decode(_ json: String) throws -> RawTheme {
@@ -188,12 +218,22 @@ private struct ExtensionProbe: View {
     @ThemeReader private var theme
     @Environment(\.themeExtensions) private var themeExtensions
 
-    let onResolve: (TestGradientToken?, Int) -> Void
+    let onResolve: (TestGradientToken.Mode?, Int) -> Void
 
     var body: some View {
-        let token = try? theme.token(.gradientHero)
-        onResolve(token, themeExtensions.count)
+        onResolve(theme.resolve(.gradientHero), themeExtensions.count)
         return Color.clear
+    }
+}
+private struct TestExtensionModeResolver: ThemeModeResolving {
+    func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
+        var modes = ResolvedThemeModes(
+            colors: .init(light: "light", dark: "dark"),
+            fonts: .init(primary: "default"),
+            unit: "default"
+        )
+        modes[Theme.TestGradients.self] = context.colorScheme == .dark ? "dark" : "light"
+        return modes
     }
 }
 #endif

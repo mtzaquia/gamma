@@ -33,7 +33,9 @@ extension RawTheme {
         extensions: [ThemeExtensionRegistration] = []
     ) -> [ThemeValidationIssue] {
         var issues = schemaValidationIssues()
-        issues.append(contentsOf: extensions.flatMap { $0.validationImplementation(self) })
+        issues.append(contentsOf: extensions.flatMap {
+            $0.validationImplementation(self, resolvedModes)
+        })
 
         guard let resolvedModes else {
             return issues.sortedForDiagnostics()

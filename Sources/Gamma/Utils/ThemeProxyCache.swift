@@ -28,6 +28,7 @@ struct ThemeCacheScope: Hashable {
     let themeInstanceID: UUID
     let overrideHash: Int
     let modeResolver: AnyThemeModeResolver
+    let colorScheme: ColorScheme
     let layoutDirection: LayoutDirection
     let horizontalSizeClass: UserInterfaceSizeClass?
 }

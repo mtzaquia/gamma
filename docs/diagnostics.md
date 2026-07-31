@@ -16,7 +16,7 @@ do {
 
 This includes broken defaults, token metadata, empty mode dictionaries, invalid colors, invalid font metrics, unknown text cases, and non-finite units.
 
-Consumer-defined root keys remain opaque at decode time because `RawTheme` does not know their token type. Passing `ThemeExtensionRegistration` values to `.theme(..., extensions:)` validates those dictionaries during installation. Missing keys, malformed shared metadata, empty modes, and consumer-specific decoding failures join the consolidated theme diagnostic.
+Consumer-defined root keys remain opaque at decode time because `RawTheme` does not know their token type. Passing `ThemeExtensionRegistration` values to `.theme(..., extensions:)` validates those dictionaries during installation. Missing keys, malformed shared metadata, empty modes, missing resolver selections, selected-mode drift, and consumer-specific decoding failures join the consolidated theme diagnostic.
 
 ## Font registration
 
@@ -46,6 +46,7 @@ After reporting a failure, release builds keep rendering with deliberately consp
 | Missing font token or primary mode | Preferred system body font. |
 | Unavailable selected PostScript font name | UIKit substitutes an available face after Gamma reports it. |
 | Missing unit token or mode | `0`. |
+| Missing custom token, selection, or selected mode | `ThemeProxy.resolve(_:)` returns `nil`; the consumer accessor supplies its domain fallback. |
 
 Fallbacks are a last line of defense, not schema defaults. Fix the diagnostic rather than designing around them.
 

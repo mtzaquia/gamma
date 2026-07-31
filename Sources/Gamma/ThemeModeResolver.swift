@@ -24,16 +24,28 @@ import SwiftUI
 
 /// The SwiftUI environment values that may influence theme mode selection.
 nonisolated public struct ThemeModeContext: Hashable, Sendable {
+    /// The current light or dark appearance.
+    public let colorScheme: ColorScheme
+
     /// The current writing direction for the resolving view hierarchy.
     public let layoutDirection: LayoutDirection
 
     /// The current horizontal size class, when one is available.
     public let horizontalSizeClass: UserInterfaceSizeClass?
 
+    /// Creates the context supplied to a theme mode resolver.
+    ///
+    /// - Parameters:
+    ///   - colorScheme: The current appearance. The default preserves source
+    ///     compatibility for callers that construct contexts directly.
+    ///   - layoutDirection: The current writing direction.
+    ///   - horizontalSizeClass: The current horizontal size class, if available.
     public init(
+        colorScheme: ColorScheme = .light,
         layoutDirection: LayoutDirection,
         horizontalSizeClass: UserInterfaceSizeClass?
     ) {
+        self.colorScheme = colorScheme
         self.layoutDirection = layoutDirection
         self.horizontalSizeClass = horizontalSizeClass
     }
@@ -66,6 +78,7 @@ nonisolated public struct ResolvedThemeModes: Hashable, Sendable {
     public let colors: ThemeColorModeSelection
     public let fonts: ThemeFontModeSelection
     public let unit: String
+    private var extensionModes: [ObjectIdentifier: String]
 
     public init(
         colors: ThemeColorModeSelection,
@@ -75,6 +88,19 @@ nonisolated public struct ResolvedThemeModes: Hashable, Sendable {
         self.colors = colors
         self.fonts = fonts
         self.unit = unit
+        extensionModes = [:]
+    }
+
+    /// The mode selected for a consumer-defined token family.
+    ///
+    /// Assign selections while implementing ``ThemeModeResolving/resolve(in:)``.
+    /// A family may use any mode name and any input from ``ThemeModeContext``;
+    /// custom modes are not restricted to appearance variants.
+    public subscript<Extension: ThemeExtensionKey>(
+        _ family: Extension.Type
+    ) -> String? {
+        get { extensionModes[ObjectIdentifier(family)] }
+        set { extensionModes[ObjectIdentifier(family)] = newValue }
     }
 }
 

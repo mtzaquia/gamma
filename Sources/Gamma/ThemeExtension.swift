@@ -47,11 +47,13 @@ public struct ThemeExtensionAlias<Extension: ThemeExtensionKey>: RawRepresentabl
 ///
 /// Registration requires the extension's top-level key to exist and contain a
 /// keyed dictionary whose values decode as the extension's token type. Gamma
-/// also validates the shared `name`, `group`, and `modes` structure.
+/// also validates the shared `name`, `group`, and `modes` structure. When
+/// resolved modes are available, registration requires one selected mode for
+/// the family and verifies that every token contains it.
 public struct ThemeExtensionRegistration {
     let identifier: ObjectIdentifier
     let key: String
-    let validationImplementation: (RawTheme) -> [ThemeValidationIssue]
+    let validationImplementation: (RawTheme, ResolvedThemeModes?) -> [ThemeValidationIssue]
 
     /// Creates a registration for a theme extension family.
     ///
@@ -59,13 +61,33 @@ public struct ThemeExtensionRegistration {
     public init<Extension: ThemeExtension>(_ family: Extension.Type) {
         identifier = ObjectIdentifier(Extension.self)
         key = Extension.key
-        validationImplementation = { theme in
+        validationImplementation = { theme, resolvedModes in
             let structuralIssues = theme.extensionValidationIssues(forKey: Extension.key)
             guard structuralIssues.isEmpty else { return structuralIssues }
 
             do {
-                _ = try ThemeExtensionTokenCache.tokens(for: Extension.self, in: theme)
-                return []
+                let tokens = try ThemeExtensionTokenCache.tokens(for: Extension.self, in: theme) ?? [:]
+                guard let resolvedModes else { return [] }
+                guard let selectedMode = resolvedModes[Extension.self] else {
+                    return [ThemeValidationIssue(
+                        path: "resolver.extensions.\(Extension.key)",
+                        message: "mode selection is required for the registered extension"
+                    )]
+                }
+                guard !selectedMode.isEmpty else {
+                    return [ThemeValidationIssue(
+                        path: "resolver.extensions.\(Extension.key)",
+                        message: "mode name must not be empty"
+                    )]
+                }
+
+                return tokens.compactMap { alias, token in
+                    guard token.modes[selectedMode] == nil else { return nil }
+                    return ThemeValidationIssue(
+                        path: "\(Extension.key).\(alias).modes.\(selectedMode)",
+                        message: "mode selected by the resolver is missing"
+                    )
+                }
             } catch {
                 return [ThemeValidationIssue(
                     path: Extension.key,

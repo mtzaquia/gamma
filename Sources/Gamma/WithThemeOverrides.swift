@@ -57,6 +57,7 @@ nonisolated public struct RawThemeOverrides: Decodable, Hashable, Sendable {
 /// Use this to hot-swap specific design tokens (colors, fonts, units) within a
 /// subtree without replacing the entire theme.
 public struct WithThemeOverrides<Content: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.themeModeResolver) private var modeResolver
@@ -67,6 +68,7 @@ public struct WithThemeOverrides<Content: View>: View {
     public var body: some View {
         let resolvedModes = modeResolver.resolve(
             in: ThemeModeContext(
+                colorScheme: colorScheme,
                 layoutDirection: layoutDirection,
                 horizontalSizeClass: horizontalSizeClass
             )

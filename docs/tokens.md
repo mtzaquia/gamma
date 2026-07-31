@@ -50,25 +50,54 @@ Register the family at the theme boundary. Gamma then requires the `gradients` r
 AppRoot()
   .theme(
     .app,
+    modeResolver: AppThemeModeResolver(),
     extensions: [ThemeExtensionRegistration(Theme.Gradients.self)]
   )
 ```
 
-`ThemeProxy.token(_:)` returns the concrete token type. The app remains responsible for choosing and rendering one of its modes.
+Select one arbitrary mode for the family in the app's resolver. This is ordinary resolver policy: it can use any supplied context value or choose a fixed mode when the family has no environment variants.
 
 ```swift
-@ThemeReader private var theme
-
-private var heroGradient: GradientToken? {
-  try? theme.token(.gradientHero)
+struct AppThemeModeResolver: ThemeModeResolving {
+  func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
+    var modes = ResolvedThemeModes(
+      colors: .init(light: "light", dark: "dark"),
+      fonts: .init(primary: "default"),
+      unit: "default"
+    )
+    modes[Theme.Gradients.self] = context.colorScheme == .dark
+      ? "dark"
+      : "light"
+    return modes
+  }
 }
 ```
+
+`ThemeProxy.resolve(_:)` returns the concrete payload for that selected mode. A consumer extension therefore only needs to turn its own payload into its rendering type and provide a fallback:
+
+```swift
+public extension ThemeProxy {
+  func gradient(_ alias: Theme.GradientsAlias) -> LinearGradient {
+    guard let mode = resolve(alias) else {
+      return LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom)
+    }
+
+    return LinearGradient(
+      colors: mode.stops.map { color(Theme.ColorAlias(rawValue: $0)) },
+      startPoint: .top,
+      endPoint: .bottom
+    )
+  }
+}
+```
+
+Views now read custom tokens like built-in ones: `theme.gradient(.gradientHero)`. Use the lower-level throwing `ThemeProxy.token(_:)` only when code needs the entire raw token, including its metadata and all modes.
 
 Unregistered top-level keys remain opaque and do not participate in installation validation. A runtime-only server family that is absent from every build input has no generated marker or aliases; declare those manually or include its alias contract in a bundled build-time theme.
 
 ## Colors
 
-`theme.color(...)` returns a SwiftUI `Color` backed by a dynamic `UIColor`. The same value follows light and dark appearance without resolving the view again solely for color scheme.
+`theme.color(...)` returns a SwiftUI `Color` backed by a dynamic `UIColor`. The same value follows light and dark appearance using the resolver's selected pair.
 
 ```swift
 Text("Account")

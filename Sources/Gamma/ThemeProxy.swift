@@ -29,6 +29,7 @@ import SwiftUI
 /// resolves aliases to their concrete values and adapts to color scheme,
 /// layout direction, and Dynamic Type size automatically.
 public struct ThemeProxy: DynamicProperty {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.theme) private var theme
@@ -46,6 +47,7 @@ public struct ThemeProxy: DynamicProperty {
     private func makeSnapshot() -> Snapshot {
         let modes = modeResolver.resolve(
             in: ThemeModeContext(
+                colorScheme: colorScheme,
                 layoutDirection: layoutDirection,
                 horizontalSizeClass: horizontalSizeClass
             )
@@ -62,6 +64,7 @@ public struct ThemeProxy: DynamicProperty {
                 themeInstanceID: theme.instanceID,
                 overrideHash: theme.overrideHash,
                 modeResolver: modeResolver,
+                colorScheme: colorScheme,
                 layoutDirection: layoutDirection,
                 horizontalSizeClass: horizontalSizeClass
             )
@@ -83,6 +86,65 @@ public struct ThemeProxy: DynamicProperty {
 }
 
 public extension ThemeProxy {
+    /// Resolves one consumer-defined alias to its selected mode payload.
+    ///
+    /// The active ``ThemeModeResolving`` implementation selects the mode name
+    /// for each custom family. This method decodes the token and returns that
+    /// mode's concrete payload type.
+    ///
+    /// - Parameter alias: The typed token alias to resolve.
+    /// - Returns: The selected mode payload, or `nil` when the family, token,
+    ///   selection, or selected mode is unavailable or invalid.
+    func resolve<Extension: ThemeExtension>(
+        _ alias: ThemeExtensionAlias<Extension>
+    ) -> Extension.Token.Mode? {
+        let snapshot = currentSnapshot
+
+        guard let selectedMode = snapshot.modes[Extension.self], !selectedMode.isEmpty else {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Extension.key,
+                alias: alias.rawValue,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the resolver did not select a mode"
+            )
+            return nil
+        }
+
+        do {
+            guard let token = try ThemeExtensionTokenCache.tokens(
+                for: Extension.self,
+                in: snapshot.theme
+            )?[alias.rawValue] else {
+                ThemeDiagnostics.resolutionFailure(
+                    kind: Extension.key,
+                    alias: alias.rawValue,
+                    themeInstanceID: snapshot.theme.instanceID,
+                    detail: "the token does not exist in theme \(snapshot.theme.id)"
+                )
+                return nil
+            }
+
+            guard let mode = token.modes[selectedMode] else {
+                ThemeDiagnostics.resolutionFailure(
+                    kind: Extension.key,
+                    alias: alias.rawValue,
+                    themeInstanceID: snapshot.theme.instanceID,
+                    detail: "mode \(selectedMode) is missing"
+                )
+                return nil
+            }
+            return mode
+        } catch {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Extension.key,
+                alias: alias.rawValue,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the payload is invalid: \(themeDecodingDescription(error))"
+            )
+            return nil
+        }
+    }
+
     /// Returns one raw token from a consumer-defined theme extension.
     ///
     /// The extension payload is decoded once per installed theme and extension
