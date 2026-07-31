@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BD3112CE300D444B00F73268 /* Gamma in Frameworks */ = {isa = PBXBuildFile; productRef = BD3112CD300D444B00F73268 /* Gamma */; };
+		BDAD002E301CB5B0002F1335 /* Gamma in Frameworks */ = {isa = PBXBuildFile; productRef = BDAD002D301CB5B0002F1335 /* Gamma */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,7 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BD3112CE300D444B00F73268 /* Gamma in Frameworks */,
+				BDAD002E301CB5B0002F1335 /* Gamma in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -97,14 +97,14 @@
 			buildRules = (
 			);
 			dependencies = (
-				BD3112FE300D447C00F73268 /* PBXTargetDependency */,
+				BDAD0030301CB5B9002F1335 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				BD40EE0D2FD15D49000899F9 /* SampleApp */,
 			);
 			name = SampleApp;
 			packageProductDependencies = (
-				BD3112CD300D444B00F73268 /* Gamma */,
+				BDAD002D301CB5B0002F1335 /* Gamma */,
 			);
 			productName = SampleApp;
 			productReference = BD40EE0B2FD15D49000899F9 /* SampleApp.app */;
@@ -162,7 +162,7 @@
 			mainGroup = BD40EE022FD15D49000899F9;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				BD3112CC300D444B00F73268 /* XCLocalSwiftPackageReference "../../DSFoundations" */,
+				BDAD002C301CB5B0002F1335 /* XCLocalSwiftPackageReference "../../Gamma" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BD40EE0C2FD15D49000899F9 /* Products */;
@@ -210,14 +210,14 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		BD3112FE300D447C00F73268 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			productRef = BD3112FD300D447C00F73268 /* GammaBuildPlugin */;
-		};
 		BD70AA182FE2A00000AA0001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = BD40EE0A2FD15D49000899F9 /* SampleApp */;
 			targetProxy = BD70AA132FE2A00000AA0001 /* PBXContainerItemProxy */;
+		};
+		BDAD0030301CB5B9002F1335 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = BDAD002F301CB5B9002F1335 /* GammaBuildPlugin */;
 		};
 /* End PBXTargetDependency section */
 
@@ -505,20 +505,20 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		BD3112CC300D444B00F73268 /* XCLocalSwiftPackageReference "../../DSFoundations" */ = {
+		BDAD002C301CB5B0002F1335 /* XCLocalSwiftPackageReference "../../Gamma" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../DSFoundations;
+			relativePath = ../../Gamma;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		BD3112CD300D444B00F73268 /* Gamma */ = {
+		BDAD002D301CB5B0002F1335 /* Gamma */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Gamma;
 		};
-		BD3112FD300D447C00F73268 /* GammaBuildPlugin */ = {
+		BDAD002F301CB5B9002F1335 /* GammaBuildPlugin */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = BD3112CC300D444B00F73268 /* XCLocalSwiftPackageReference "../../DSFoundations" */;
+			package = BDAD002C301CB5B0002F1335 /* XCLocalSwiftPackageReference "../../Gamma" */;
 			productName = "plugin:GammaBuildPlugin";
 		};
 /* End XCSwiftPackageProductDependency section */

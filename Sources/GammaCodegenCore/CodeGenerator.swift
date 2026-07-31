@@ -445,7 +445,7 @@ private extension GammaCodeGenerator {
             writer.line("// MARK: - Theme.\(typeName)")
             writer.blankLine()
             writer.block("public extension Theme") { writer in
-                writer.block("struct \(typeName): UnitAlias") { writer in
+                writer.block("struct \(typeName): @MainActor UnitAlias") { writer in
                     writer.line("public var rawValue: String")
                     writer.block("public init(rawValue: String)") { writer in
                         writer.line("self.rawValue = rawValue")
