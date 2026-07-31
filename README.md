@@ -1,5 +1,9 @@
 # 🌅 Gamma
 
+[![Tests](https://github.com/mtzaquia/gamma/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mtzaquia/gamma/actions/workflows/tests.yml)
+[![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange.svg)](https://www.swift.org/)
+[![iOS 16+](https://img.shields.io/badge/iOS-16%2B-blue.svg)](https://github.com/mtzaquia/gamma/blob/main/Package.swift)
+
 `Gamma` is a battle-tested, streamlined design system foundation for your apps.
 
 Describe colors, typography, and units in one JSON theme. Decide how its modes map to the current SwiftUI environment. Gamma validates the result, generates type-safe aliases, and resolves those aliases where views use them.
