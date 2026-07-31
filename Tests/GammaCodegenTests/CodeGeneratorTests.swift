@@ -120,9 +120,9 @@ struct CodeGeneratorTests {
             let second = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
             #expect(first == second)
-            #expect(first.contains("struct SpacingAlias: UnitAlias"))
+            #expect(first.contains("struct SpacingAlias: @MainActor UnitAlias"))
             #expect(first.contains("static var spaceSmall"))
-            #expect(first.contains("struct RadiusAlias: UnitAlias"))
+            #expect(first.contains("struct RadiusAlias: @MainActor UnitAlias"))
         }
     }
 
@@ -137,7 +137,7 @@ struct CodeGeneratorTests {
 
             let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
-            #expect(source.contains("struct SelfAlias: UnitAlias"))
+            #expect(source.contains("struct SelfAlias: @MainActor UnitAlias"))
             #expect(source.contains("Self == Theme.SelfAlias"))
         }
     }
