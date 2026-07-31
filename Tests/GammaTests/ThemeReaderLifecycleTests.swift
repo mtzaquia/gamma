@@ -87,7 +87,7 @@ struct ThemeReaderLifecycleTests {
         window.isHidden = true
     }
 
-    @Test("Resolved colors remain dynamic without color scheme in the cache scope")
+    @Test("Resolved colors contain both selected appearances")
     func colorsRemainDynamic() async throws {
         let counter = ResolutionCounter()
         let model = try LifecycleModel(themeJSON: Self.themeJSON(compactUnit: 12))

@@ -49,14 +49,20 @@ nonisolated public struct ThemeModeContext: Hashable, Sendable {
         self.horizontalSizeClass = horizontalSizeClass
     }
 
-    /// Creates a context with light appearance.
+    /// Creates a compatibility context that assumes light appearance.
     ///
-    /// This initializer preserves the original mode-resolver API. Gamma supplies
-    /// the actual environment color scheme when resolving an installed theme.
+    /// Use ``init(colorScheme:layoutDirection:horizontalSizeClass:)`` so manually
+    /// created contexts reflect the appearance being tested. Gamma supplies the
+    /// actual environment color scheme when resolving an installed theme.
     ///
     /// - Parameters:
     ///   - layoutDirection: The current writing direction.
     ///   - horizontalSizeClass: The current horizontal size class, if available.
+    @available(
+        *,
+        deprecated,
+        message: "Use init(colorScheme:layoutDirection:horizontalSizeClass:) instead."
+    )
     public init(
         layoutDirection: LayoutDirection,
         horizontalSizeClass: UserInterfaceSizeClass?
@@ -104,10 +110,15 @@ nonisolated public struct ResolvedThemeModes: Hashable, Sendable {
     /// Creates an empty collection of family mode selections.
     public init() {}
 
-    /// Creates the color, font, and unit selections used by earlier Gamma releases.
+    /// Creates color, font, and unit selections through the legacy fixed fields.
     ///
     /// The values are stored under ``Theme/Colors``, ``Theme/Fonts``, and
     /// ``Theme/Units`` and remain available through the typed subscript.
+    @available(
+        *,
+        deprecated,
+        message: "Create ResolvedThemeModes() and assign typed family selections instead."
+    )
     public init(
         colors: ThemeColorModeSelection,
         fonts: ThemeFontModeSelection,
@@ -119,26 +130,29 @@ nonisolated public struct ResolvedThemeModes: Hashable, Sendable {
         self[Theme.Units.self] = unit
     }
 
-    /// The color selection supplied through ``Theme/Colors``.
+    /// The legacy color selection supplied through ``Theme/Colors``.
     ///
     /// Use the typed subscript in new resolver implementations. If the family
     /// was not assigned, this compatibility property returns `light` and `dark`.
+    @available(*, deprecated, message: "Use modes[Theme.Colors.self] instead.")
     public var colors: ThemeColorModeSelection {
         self[Theme.Colors.self] ?? StandardThemeModeSelection.colors
     }
 
-    /// The font selection supplied through ``Theme/Fonts``.
+    /// The legacy font selection supplied through ``Theme/Fonts``.
     ///
     /// Use the typed subscript in new resolver implementations. If the family
     /// was not assigned, this compatibility property returns `default`.
+    @available(*, deprecated, message: "Use modes[Theme.Fonts.self] instead.")
     public var fonts: ThemeFontModeSelection {
         self[Theme.Fonts.self] ?? StandardThemeModeSelection.fonts
     }
 
-    /// The unit mode supplied through ``Theme/Units``.
+    /// The legacy unit mode supplied through ``Theme/Units``.
     ///
     /// Use the typed subscript in new resolver implementations. If the family
     /// was not assigned, this compatibility property returns `default`.
+    @available(*, deprecated, message: "Use modes[Theme.Units.self] instead.")
     public var unit: String {
         self[Theme.Units.self] ?? StandardThemeModeSelection.unit
     }

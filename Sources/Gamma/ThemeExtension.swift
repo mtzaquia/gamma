@@ -43,17 +43,11 @@ nonisolated public protocol ThemeExtensionToken: Decodable {
     var modes: [String: Mode] { get }
 }
 
-/// Identifies a top-level token family before its payload type is known.
-///
-/// Code generation uses this lightweight marker so it can emit typed aliases;
-/// a ``ThemeExtension`` conformance then supplies the concrete token payload.
-nonisolated public protocol ThemeExtensionKey {
+/// Connects a token family to its concrete payload and resolver selection.
+nonisolated public protocol ThemeExtension {
     /// The top-level JSON key whose value is the family's token dictionary.
     static var key: String { get }
-}
 
-/// Connects a token family to its concrete payload and resolver selection.
-nonisolated public protocol ThemeExtension: ThemeExtensionKey {
     /// The concrete token decoded for this family.
     associatedtype Token: ThemeExtensionToken
 
@@ -99,7 +93,7 @@ public extension Theme {
 }
 
 /// A typed alias for one token in a built-in or consumer-defined family.
-nonisolated public struct ThemeExtensionAlias<Extension: ThemeExtensionKey>: RawRepresentable, Hashable, Sendable {
+nonisolated public struct ThemeExtensionAlias<Extension: ThemeExtension>: RawRepresentable, Hashable, Sendable {
     /// The token key as it appears in the extension's JSON dictionary.
     public var rawValue: String
 
@@ -127,45 +121,56 @@ public struct ThemeExtensionRegistration {
     where Extension.Selection == String {
         identifier = ObjectIdentifier(Extension.self)
         validationImplementation = { theme, resolvedModes in
-            let structuralIssues = theme.extensionValidationIssues(forKey: Extension.key)
-            guard structuralIssues.isEmpty else { return structuralIssues }
-
-            do {
-                let tokens = try ThemeExtensionTokenCache.tokens(for: Extension.self, in: theme) ?? [:]
-                guard let resolvedModes else { return [] }
-                guard let selectedMode = resolvedModes[Extension.self] else {
-                    return [ThemeValidationIssue(
-                        path: "resolver.\(Extension.key)",
-                        message: "mode selection is required for the registered extension"
-                    )]
-                }
-                guard !selectedMode.isEmpty else {
-                    return [ThemeValidationIssue(
-                        path: "resolver.\(Extension.key)",
-                        message: "mode name must not be empty"
-                    )]
-                }
-
-                return tokens.compactMap { alias, token in
-                    guard token.modes[selectedMode] == nil else { return nil }
-                    return ThemeValidationIssue(
-                        path: "\(Extension.key).\(alias).modes.\(selectedMode)",
-                        message: "mode selected by the resolver is missing"
-                    )
-                }
-            } catch {
-                return [ThemeValidationIssue(
-                    path: Extension.key,
-                    message: "does not match \(String(describing: Extension.Token.self)): "
-                        + themeDecodingDescription(error)
-                )]
-            }
+            theme.extensionValidationIssues(
+                for: family,
+                resolvedModes: resolvedModes
+            )
         }
     }
 }
 
 extension RawTheme {
-    func extensionValidationIssues(forKey key: String) -> [ThemeValidationIssue] {
+    func extensionValidationIssues<Extension: ThemeExtension>(
+        for _: Extension.Type,
+        resolvedModes: ResolvedThemeModes?
+    ) -> [ThemeValidationIssue]
+    where Extension.Selection == String {
+        let structuralIssues = extensionStructureValidationIssues(forKey: Extension.key)
+        guard structuralIssues.isEmpty else { return structuralIssues }
+
+        do {
+            let tokens = try ThemeExtensionTokenCache.tokens(for: Extension.self, in: self) ?? [:]
+            guard let resolvedModes else { return [] }
+            guard let selectedMode = resolvedModes[Extension.self] else {
+                return [ThemeValidationIssue(
+                    path: "resolver.\(Extension.key)",
+                    message: "mode selection is required for the registered extension"
+                )]
+            }
+            guard !selectedMode.isEmpty else {
+                return [ThemeValidationIssue(
+                    path: "resolver.\(Extension.key)",
+                    message: "mode name must not be empty"
+                )]
+            }
+
+            return tokens.compactMap { alias, token in
+                guard token.modes[selectedMode] == nil else { return nil }
+                return ThemeValidationIssue(
+                    path: "\(Extension.key).\(alias).modes.\(selectedMode)",
+                    message: "mode selected by the resolver is missing"
+                )
+            }
+        } catch {
+            return [ThemeValidationIssue(
+                path: Extension.key,
+                message: "does not match \(String(describing: Extension.Token.self)): "
+                    + themeDecodingDescription(error)
+            )]
+        }
+    }
+
+    private func extensionStructureValidationIssues(forKey key: String) -> [ThemeValidationIssue] {
         guard !key.isEmpty else {
             return [.init(path: "extensions", message: "extension key must not be empty")]
         }

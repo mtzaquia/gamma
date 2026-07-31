@@ -35,7 +35,7 @@ public enum IllustrationAsset: AssetType {}
 public enum AnimationAsset: AssetType {}
 
 /// Namespace for design token alias types used to look up theme values.
-public enum Theme: Sendable {
+public enum Theme {
     /// An alias for a local icon asset.
     public typealias IconAlias = AssetAlias<IconAsset>
 

@@ -177,7 +177,7 @@ struct CodeGeneratorTests {
 
             let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
-            #expect(source.contains("nonisolated enum Gradients: ThemeExtensionKey"))
+            #expect(source.contains("nonisolated enum Gradients"))
             #expect(source.contains(#"nonisolated public static let key = "gradients""#))
             #expect(source.contains("typealias GradientsAlias = ThemeExtensionAlias<Gradients>"))
             #expect(source.contains("Extension == Theme.Gradients"))
@@ -221,6 +221,26 @@ struct CodeGeneratorTests {
                 #expect(error.localizedDescription.contains("GradientsAlias"))
                 #expect(error.localizedDescription.contains("unit group"))
                 #expect(error.localizedDescription.contains("extension alias"))
+            }
+        }
+    }
+
+    @Test("Custom family markers cannot collide with built-in families")
+    func customFamilyMarkerCollision() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let document = validThemeDocument(extensions: [
+                "Colors": ["hero": token(group: "Brand")],
+            ])
+            try write(document, to: input)
+
+            do {
+                _ = try GammaCodeGenerator.generate(inputURL: input, template: .tokens)
+                Issue.record("Expected built-in Theme type collision to fail generation")
+            } catch {
+                #expect(error.localizedDescription.contains("Colors"))
+                #expect(error.localizedDescription.contains("built-in Theme.Colors"))
+                #expect(error.localizedDescription.contains("extension family"))
             }
         }
     }

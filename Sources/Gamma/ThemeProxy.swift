@@ -102,12 +102,19 @@ public extension ThemeProxy {
     where Extension.Selection == String {
         let snapshot = currentSnapshot
 
-        guard let selectedMode = snapshot.modes[Extension.self], !selectedMode.isEmpty else {
+        guard let selectedMode = selection(
+            for: Extension.self,
+            alias: alias.rawValue,
+            in: snapshot
+        ) else {
+            return nil
+        }
+        guard !selectedMode.isEmpty else {
             ThemeDiagnostics.resolutionFailure(
                 kind: Extension.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
-                detail: "the resolver did not select a mode"
+                detail: "the resolver selected an empty mode name"
             )
             return nil
         }
@@ -152,13 +159,11 @@ public extension ThemeProxy {
         let snapshot = currentSnapshot
         let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: alias.rawValue)
 
-        guard let selectedModes = snapshot.modes[Theme.Colors.self] else {
-            ThemeDiagnostics.resolutionFailure(
-                kind: Theme.Colors.key,
-                alias: alias.rawValue,
-                themeInstanceID: snapshot.theme.instanceID,
-                detail: "the resolver did not select color modes"
-            )
+        guard let selectedModes = selection(
+            for: Theme.Colors.self,
+            alias: alias.rawValue,
+            in: snapshot
+        ) else {
             return fallbackColor(light: .black, dark: .white, cacheKey: cacheKey)
         }
 
@@ -207,13 +212,11 @@ public extension ThemeProxy {
         let snapshot = currentSnapshot
         let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: alias.rawValue)
 
-        guard let selectedModes = snapshot.modes[Theme.Fonts.self] else {
-            ThemeDiagnostics.resolutionFailure(
-                kind: Theme.Fonts.key,
-                alias: alias.rawValue,
-                themeInstanceID: snapshot.theme.instanceID,
-                detail: "the resolver did not select font modes"
-            )
+        guard let selectedModes = selection(
+            for: Theme.Fonts.self,
+            alias: alias.rawValue,
+            in: snapshot
+        ) else {
             return .fallback
         }
 
@@ -274,13 +277,11 @@ public extension ThemeProxy {
         let snapshot = currentSnapshot
         let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: alias.rawValue)
 
-        guard let selectedMode = snapshot.modes[Theme.Units.self] else {
-            ThemeDiagnostics.resolutionFailure(
-                kind: Theme.Units.key,
-                alias: alias.rawValue,
-                themeInstanceID: snapshot.theme.instanceID,
-                detail: "the resolver did not select a unit mode"
-            )
+        guard let selectedMode = selection(
+            for: Theme.Units.self,
+            alias: alias.rawValue,
+            in: snapshot
+        ) else {
             return 0
         }
 
@@ -327,5 +328,22 @@ public extension ThemeProxy {
         let result = Color(uiColor: uiColor)
         ThemeProxyCache.colorCache[cacheKey] = result
         return result
+    }
+
+    private func selection<Extension: ThemeExtension>(
+        for _: Extension.Type,
+        alias: String,
+        in snapshot: Snapshot
+    ) -> Extension.Selection? {
+        guard let selection = snapshot.modes[Extension.self] else {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Extension.key,
+                alias: alias,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the resolver did not provide a selection"
+            )
+            return nil
+        }
+        return selection
     }
 }

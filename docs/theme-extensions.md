@@ -28,7 +28,7 @@ For every non-empty custom family in a build input, Gamma generates a family mar
 
 ```swift
 public extension Theme {
-  nonisolated enum Gradients: ThemeExtensionKey {
+  nonisolated enum Gradients {
     nonisolated public static let key = "gradients"
   }
 
@@ -67,6 +67,7 @@ extension Theme.Gradients: ThemeExtension {
 ```
 
 Generated markers are public, so a public conformance requires a public token type and `Token` witness. In a main-actor-by-default target, declare the token and mode types `nonisolated` so `Decodable` synthesis remains available.
+Because the generated alias is constrained to `ThemeExtension`, adding a custom family also requires this conformance in the consumer target.
 
 ## Select a mode
 
@@ -154,6 +155,6 @@ Failures join Gamma's consolidated warning and trigger a debug assertion. In rel
 
 ## Runtime-only families
 
-Generated aliases come only from build inputs. A server theme must preserve that compiled alias contract. If a runtime-only family is absent from every build input, declare its `ThemeExtensionKey` marker and aliases manually or include its alias contract in a bundled build-time theme.
+Generated aliases come only from build inputs. A server theme must preserve that compiled alias contract. If a runtime-only family is absent from every build input, declare its family marker, alias accessors, and `ThemeExtension` conformance manually—or include its alias contract in a bundled build-time theme.
 
 Next: [Theme format](themes.md) · [Mode resolution](modes.md) · [Using tokens](tokens.md)

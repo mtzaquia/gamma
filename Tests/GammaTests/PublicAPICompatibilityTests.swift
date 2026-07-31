@@ -35,11 +35,11 @@ public extension Theme.FontAlias {
 
 private struct CompatibilityModeResolver: ThemeModeResolving {
     func resolve(in _: ThemeModeContext) -> ResolvedThemeModes {
-        ResolvedThemeModes(
-            colors: .init(light: "light", dark: "dark"),
-            fonts: .init(primary: "default"),
-            unit: "default"
-        )
+        var modes = ResolvedThemeModes()
+        modes[Theme.Colors.self] = .init(light: "light", dark: "dark")
+        modes[Theme.Fonts.self] = .init(primary: "default")
+        modes[Theme.Units.self] = "default"
+        return modes
     }
 }
 
@@ -68,6 +68,7 @@ struct PublicAPICompatibilityTests {
     }
 
     @Test("Original mode initializer and properties bridge to family selections")
+    @available(*, deprecated)
     func modeSurfaceBridgesToTypedFamilies() {
         let colors = ThemeColorModeSelection(light: "day", dark: "night")
         let fonts = ThemeFontModeSelection(primary: "latin", cascades: ["arabic"])
@@ -82,6 +83,7 @@ struct PublicAPICompatibilityTests {
     }
 
     @Test("Original context initializer remains available")
+    @available(*, deprecated)
     func contextInitializerRemainsAvailable() {
         let context = ThemeModeContext(
             layoutDirection: .rightToLeft,

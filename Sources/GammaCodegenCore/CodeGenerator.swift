@@ -90,7 +90,6 @@ public enum GammaCodeGenerator {
                 )
             }
             let documents = try inputURLs.map { url in
-                _ = try decodeTheme(at: url)
                 return (url: url, document: try decodeDocument(at: url))
             }
             try validateSharedTokenContract(documents)
@@ -119,14 +118,16 @@ private extension GammaCodeGenerator {
         var extensions: [String: [String: ExtensionToken]] = [:]
 
         private enum CodingKeys: String, CodingKey {
-            case colors, fonts, units, assets, illustrations
+            case assets, illustrations
         }
 
         init(from decoder: any Decoder) throws {
+            let theme = try RawTheme(from: decoder)
+            colors = theme.colors.mapValues { .init(group: $0.group, description: $0.description) }
+            fonts = theme.fonts.mapValues { .init(group: $0.group, description: $0.description) }
+            units = theme.units.mapValues { .init(group: $0.group, description: $0.description) }
+
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            colors = try container.decodeIfPresent([String: Token].self, forKey: .colors) ?? [:]
-            fonts = try container.decodeIfPresent([String: Token].self, forKey: .fonts) ?? [:]
-            units = try container.decodeIfPresent([String: Token].self, forKey: .units) ?? [:]
             assets = try container.decodeIfPresent([String: Asset].self, forKey: .assets) ?? [:]
             illustrations = try container.decodeIfPresent([String: Asset].self, forKey: .illustrations) ?? [:]
 
@@ -166,7 +167,7 @@ private extension GammaCodeGenerator {
             colors = Set(document.colors.keys)
             fonts = Set(document.fonts.keys)
             units = Set(document.units.map { key, token in
-                UnitAlias(key: key, group: token.group ?? "")
+                UnitAlias(key: key, group: token.group)
             })
             extensions = document.extensions.mapValues { Set($0.keys) }
         }
@@ -228,9 +229,9 @@ private extension GammaCodeGenerator {
         }
     }
 
-    struct Token: Decodable {
-        let group: String?
-        let description: String?
+    struct Token {
+        let group: String
+        let description: String
     }
 
     struct ExtensionToken: Decodable {
@@ -296,17 +297,7 @@ private extension GammaCodeGenerator {
             return try JSONDecoder().decode(ThemeDocument.self, from: Data(contentsOf: url))
         } catch {
             throw CodeGenerationError.invalidInput(
-                "Could not parse theme JSON at \(url.path): \(themeDecodingDescription(error))"
-            )
-        }
-    }
-
-    static func decodeTheme(at url: URL) throws -> RawTheme {
-        do {
-            return try JSONDecoder().decode(RawTheme.self, from: Data(contentsOf: url))
-        } catch {
-            throw CodeGenerationError.invalidInput(
-                "Theme schema validation failed at \(url.path): \(themeDecodingDescription(error))"
+                "Theme validation failed at \(url.path): \(themeDecodingDescription(error))"
             )
         }
     }
@@ -475,7 +466,7 @@ private extension GammaCodeGenerator {
         try validateCollisions(scope: "color aliases", sources: Array(document.colors.keys), transform: tokenAccessor)
         try validateCollisions(scope: "font aliases", sources: Array(document.fonts.keys), transform: tokenAccessor)
 
-        let groupedUnits = Dictionary(grouping: document.units) { $0.value.group ?? "" }
+        let groupedUnits = Dictionary(grouping: document.units) { $0.value.group }
             .filter { !$0.key.isEmpty }
         try validateThemeTypeCollisions(
             unitGroups: Array(groupedUnits.keys),
@@ -558,7 +549,7 @@ private extension GammaCodeGenerator {
             writer.blankLine()
             writer.block("public extension Theme") { writer in
                 writer.line("/// Identifies custom tokens under the \(swiftStringLiteral(family)) theme key.")
-                writer.block("nonisolated enum \(familyType): ThemeExtensionKey") { writer in
+                writer.block("nonisolated enum \(familyType)") { writer in
                     writer.line("/// The top-level JSON key for this token family.")
                     writer.line("nonisolated public static let key = \(swiftStringLiteral(family))")
                 }
@@ -635,8 +626,11 @@ private extension GammaCodeGenerator {
         var generated: [String: [String]] = [
             "AssetAlias": ["built-in Theme.AssetAlias"],
             "ColorAlias": ["built-in Theme.ColorAlias"],
+            "Colors": ["built-in Theme.Colors"],
             "FontAlias": ["built-in Theme.FontAlias"],
+            "Fonts": ["built-in Theme.Fonts"],
             "IconAlias": ["built-in Theme.IconAlias"],
+            "Units": ["built-in Theme.Units"],
         ]
 
         for group in unitGroups.sorted() {

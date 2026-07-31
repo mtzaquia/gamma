@@ -217,7 +217,7 @@ nonisolated public struct TestGradientToken: ThemeExtensionToken {
 }
 
 public extension Theme {
-    nonisolated enum TestGradients: ThemeExtensionKey {
+    nonisolated enum TestGradients {
         public static let key = "gradients"
     }
 

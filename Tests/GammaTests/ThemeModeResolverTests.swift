@@ -33,6 +33,7 @@ struct ThemeModeResolverTests {
     func defaultResolverUsesDefaultFontAndUnitModes() {
         let modes = DefaultThemeModeResolver().resolve(
             in: ThemeModeContext(
+                colorScheme: .light,
                 layoutDirection: .leftToRight,
                 horizontalSizeClass: .compact
             )
@@ -50,6 +51,7 @@ struct ThemeModeResolverTests {
     func defaultFontAndUnitModesDoNotVaryWithContext() {
         let modes = DefaultThemeModeResolver().resolve(
             in: ThemeModeContext(
+                colorScheme: .light,
                 layoutDirection: .rightToLeft,
                 horizontalSizeClass: .regular
             )
@@ -65,12 +67,14 @@ struct ThemeModeResolverTests {
 
         let compactModes = resolver.resolve(
             in: ThemeModeContext(
+                colorScheme: .light,
                 layoutDirection: .leftToRight,
                 horizontalSizeClass: .compact
             )
         )
         let regularModes = resolver.resolve(
             in: ThemeModeContext(
+                colorScheme: .light,
                 layoutDirection: .leftToRight,
                 horizontalSizeClass: .regular
             )
