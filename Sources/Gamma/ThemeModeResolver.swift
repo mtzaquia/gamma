@@ -36,17 +36,36 @@ nonisolated public struct ThemeModeContext: Hashable, Sendable {
     /// Creates the context supplied to a theme mode resolver.
     ///
     /// - Parameters:
-    ///   - colorScheme: The current appearance. Defaults to `.light`.
+    ///   - colorScheme: The current appearance.
     ///   - layoutDirection: The current writing direction.
     ///   - horizontalSizeClass: The current horizontal size class, if available.
     public init(
-        colorScheme: ColorScheme = .light,
+        colorScheme: ColorScheme,
         layoutDirection: LayoutDirection,
         horizontalSizeClass: UserInterfaceSizeClass?
     ) {
         self.colorScheme = colorScheme
         self.layoutDirection = layoutDirection
         self.horizontalSizeClass = horizontalSizeClass
+    }
+
+    /// Creates a context with light appearance.
+    ///
+    /// This initializer preserves the original mode-resolver API. Gamma supplies
+    /// the actual environment color scheme when resolving an installed theme.
+    ///
+    /// - Parameters:
+    ///   - layoutDirection: The current writing direction.
+    ///   - horizontalSizeClass: The current horizontal size class, if available.
+    public init(
+        layoutDirection: LayoutDirection,
+        horizontalSizeClass: UserInterfaceSizeClass?
+    ) {
+        self.init(
+            colorScheme: .light,
+            layoutDirection: layoutDirection,
+            horizontalSizeClass: horizontalSizeClass
+        )
     }
 }
 
@@ -85,6 +104,45 @@ nonisolated public struct ResolvedThemeModes: Hashable, Sendable {
     /// Creates an empty collection of family mode selections.
     public init() {}
 
+    /// Creates the color, font, and unit selections used by earlier Gamma releases.
+    ///
+    /// The values are stored under ``Theme/Colors``, ``Theme/Fonts``, and
+    /// ``Theme/Units`` and remain available through the typed subscript.
+    public init(
+        colors: ThemeColorModeSelection,
+        fonts: ThemeFontModeSelection,
+        unit: String
+    ) {
+        self.init()
+        self[Theme.Colors.self] = colors
+        self[Theme.Fonts.self] = fonts
+        self[Theme.Units.self] = unit
+    }
+
+    /// The color selection supplied through ``Theme/Colors``.
+    ///
+    /// Use the typed subscript in new resolver implementations. If the family
+    /// was not assigned, this compatibility property returns `light` and `dark`.
+    public var colors: ThemeColorModeSelection {
+        self[Theme.Colors.self] ?? StandardThemeModeSelection.colors
+    }
+
+    /// The font selection supplied through ``Theme/Fonts``.
+    ///
+    /// Use the typed subscript in new resolver implementations. If the family
+    /// was not assigned, this compatibility property returns `default`.
+    public var fonts: ThemeFontModeSelection {
+        self[Theme.Fonts.self] ?? StandardThemeModeSelection.fonts
+    }
+
+    /// The unit mode supplied through ``Theme/Units``.
+    ///
+    /// Use the typed subscript in new resolver implementations. If the family
+    /// was not assigned, this compatibility property returns `default`.
+    public var unit: String {
+        self[Theme.Units.self] ?? StandardThemeModeSelection.unit
+    }
+
     /// The resolver selection for a built-in or consumer-defined token family.
     ///
     /// Assign selections while implementing ``ThemeModeResolving/resolve(in:)``.
@@ -109,6 +167,12 @@ nonisolated private struct AnyThemeModeSelection: Hashable, @unchecked Sendable 
     init<Value: Hashable & Sendable>(_ value: Value) {
         self.value = AnyHashable(value)
     }
+}
+
+nonisolated private enum StandardThemeModeSelection {
+    static let colors = ThemeColorModeSelection(light: "light", dark: "dark")
+    static let fonts = ThemeFontModeSelection(primary: "default")
+    static let unit = "default"
 }
 
 /// Selects the raw theme modes to use for a SwiftUI environment.
@@ -142,9 +206,9 @@ public struct DefaultThemeModeResolver: ThemeModeResolving {
     /// Selects `light` and `dark` colors plus `default` fonts and units.
     public func resolve(in _: ThemeModeContext) -> ResolvedThemeModes {
         var modes = ResolvedThemeModes()
-        modes[Theme.Colors.self] = ThemeColorModeSelection(light: "light", dark: "dark")
-        modes[Theme.Fonts.self] = ThemeFontModeSelection(primary: "default")
-        modes[Theme.Units.self] = "default"
+        modes[Theme.Colors.self] = StandardThemeModeSelection.colors
+        modes[Theme.Fonts.self] = StandardThemeModeSelection.fonts
+        modes[Theme.Units.self] = StandardThemeModeSelection.unit
         return modes
     }
 }

@@ -35,15 +35,31 @@ public enum IllustrationAsset: AssetType {}
 public enum AnimationAsset: AssetType {}
 
 /// Namespace for design token alias types used to look up theme values.
-nonisolated public enum Theme {
+public enum Theme: Sendable {
     /// An alias for a local icon asset.
     public typealias IconAlias = AssetAlias<IconAsset>
 
-    /// A typed alias for a color token.
-    public typealias ColorAlias = ThemeExtensionAlias<Colors>
+    /// Identifies a color design token by name.
+    public struct ColorAlias: RawRepresentable, Hashable, Sendable {
+        /// The token name as defined in the theme.
+        public var rawValue: String
 
-    /// A typed alias for a font token.
-    public typealias FontAlias = ThemeExtensionAlias<Fonts>
+        /// Creates a color alias from its theme token name.
+        public init(rawValue: String) {
+            self.rawValue = rawValue
+        }
+    }
+
+    /// Identifies a font design token by name.
+    public struct FontAlias: RawRepresentable, Hashable, Sendable {
+        /// The token name as defined in the theme.
+        public var rawValue: String
+
+        /// Creates a font alias from its theme token name.
+        public init(rawValue: String) {
+            self.rawValue = rawValue
+        }
+    }
 
     /// Identifies an asset catalog entry by name for a given asset type.
     public struct AssetAlias<Asset: AssetType>: RawRepresentable, Hashable, Sendable {

@@ -40,10 +40,10 @@ struct CodeGeneratorTests {
                 template: .tokens
             ).source
 
-            #expect(source.contains("static var _1xFoo"))
-            #expect(source.contains("static var icon2x"))
-            #expect(source.contains("static var `class`"))
-            #expect(source.contains("static var `get`"))
+            #expect(source.contains("static let _1xFoo"))
+            #expect(source.contains("static let icon2x"))
+            #expect(source.contains("static let `class`"))
+            #expect(source.contains("static let `get`"))
             #expect(source.contains(#"Self(rawValue: "quote\"and\\slash")"#))
         }
     }
@@ -155,10 +155,10 @@ struct CodeGeneratorTests {
 
             let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
-            #expect(source.contains("static var colorDefault"))
-            #expect(source.contains("static var fontDefault"))
-            #expect(source.contains("Extension == Theme.Colors"))
-            #expect(source.contains("Extension == Theme.Fonts"))
+            #expect(source.contains("static let colorDefault"))
+            #expect(source.contains("static let fontDefault"))
+            #expect(source.contains("public extension Theme.ColorAlias"))
+            #expect(source.contains("public extension Theme.FontAlias"))
             #expect(!source.contains("struct SpacingAlias: UnitAlias"))
         }
     }
@@ -287,7 +287,7 @@ struct CodeGeneratorTests {
                 template: .tokens
             )
 
-            #expect(output.source.components(separatedBy: "static var colorDefault").count - 1 == 1)
+            #expect(output.source.components(separatedBy: "static let colorDefault").count - 1 == 1)
             #expect(output.source.contains("static let day = Self(fileName: \"Day.theme.json\")"))
             #expect(output.source.contains("static let night = Self(fileName: \"Night.theme.json\")"))
         }

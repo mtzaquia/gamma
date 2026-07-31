@@ -276,6 +276,11 @@ private extension GammaCodeGenerator {
         let description: String?
     }
 
+    enum TokenAccessorImplementation {
+        case stored
+        case computed
+    }
+
     struct Asset: Decodable {
         let path: String?
     }
@@ -508,17 +513,19 @@ private extension GammaCodeGenerator {
                 )
             }
         }
-        try renderThemeExtensionAccessors(
-            familyType: "Colors",
+        try renderTokenAccessors(
             aliasType: "ColorAlias",
+            extensionDeclaration: "public extension Theme.ColorAlias",
             tokens: document.colors.map { .init(key: $0.key, description: $0.value.description) },
-            writer: &writer
+            writer: &writer,
+            implementation: .stored
         )
-        try renderThemeExtensionAccessors(
-            familyType: "Fonts",
+        try renderTokenAccessors(
             aliasType: "FontAlias",
+            extensionDeclaration: "public extension Theme.FontAlias",
             tokens: document.fonts.map { .init(key: $0.key, description: $0.value.description) },
-            writer: &writer
+            writer: &writer,
+            implementation: .stored
         )
 
         for group in groupedUnits.keys.sorted() {
@@ -559,9 +566,10 @@ private extension GammaCodeGenerator {
                 writer.line("/// A typed alias for tokens in the \(swiftStringLiteral(family)) family.")
                 writer.line("typealias \(aliasType) = ThemeExtensionAlias<\(familyType)>")
             }
-            try renderThemeExtensionAccessors(
-                familyType: familyType,
+            try renderTokenAccessors(
                 aliasType: aliasType,
+                extensionDeclaration: "public extension ThemeExtensionAlias "
+                    + "where Extension == Theme.\(familyType)",
                 tokens: document.extensions[family, default: [:]].map {
                     .init(key: $0.key, description: $0.value.description)
                 },
@@ -575,27 +583,30 @@ private extension GammaCodeGenerator {
         return writer.source
     }
 
-    static func renderThemeExtensionAccessors(
-        familyType: String,
+    static func renderTokenAccessors(
         aliasType: String,
+        extensionDeclaration: String,
         tokens: [TokenAccessorDeclaration],
         writer: inout SourceWriter,
-        includeMark: Bool = true
+        includeMark: Bool = true,
+        implementation: TokenAccessorImplementation = .computed
     ) throws {
         writer.blankLine()
         if includeMark {
             writer.line("// MARK: - Theme.\(aliasType)")
             writer.blankLine()
         }
-        try writer.block(
-            "public extension ThemeExtensionAlias where Extension == Theme.\(familyType)"
-        ) { writer in
+        try writer.block(extensionDeclaration) { writer in
             for token in tokens.sorted(by: { $0.key < $1.key }) {
                 writer.docComment(description: token.description, key: token.key)
-                writer.line(
-                    "static var \(try tokenAccessor(token.key)): Self { "
-                        + "Self(rawValue: \(swiftStringLiteral(token.key))) }"
-                )
+                let accessor = try tokenAccessor(token.key)
+                let rawValue = swiftStringLiteral(token.key)
+                switch implementation {
+                case .stored:
+                    writer.line("static let \(accessor) = Self(rawValue: \(rawValue))")
+                case .computed:
+                    writer.line("static var \(accessor): Self { Self(rawValue: \(rawValue)) }")
+                }
             }
         }
     }
