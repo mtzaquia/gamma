@@ -12,7 +12,6 @@ Describe colors, typography, and units in one JSON theme. Decide how its modes m
 - Dynamic colors that follow light and dark appearance.
 - Typography that scales with Dynamic Type and cascades across scripts.
 - Units that can adapt to size class or any policy your design system names.
-- Consumer-defined keyed token families validated when the theme is installed.
 - Scoped token overrides without replacing the installed theme.
 - Bundled or server-provided themes, with registration of app-supplied local font files.
 - Swift-native generation through Xcode, SwiftPM, or a command-line executable.
@@ -89,7 +88,7 @@ ContentView()
 
 That is the core idea: the theme owns raw design values, the resolver chooses modes for the current environment, and views use `@ThemeReader` to retrieve concrete values.
 
-The generated `.app` resource and token aliases come from the same `App.theme.json` input. If a target contains multiple exported themes, Gamma generates all resource handles but only one alias surface; generation fails with both file paths if their token keys or unit groups drift.
+The generated `.app` resource and token aliases come from the same `App.theme.json` input. If a target contains multiple exported themes, Gamma generates all resource handles but only one alias surface; generation fails with both file paths if their alias contracts drift.
 
 Server themes use the same runtime path: the app downloads and stores the JSON and font files, then passes the decoded `RawTheme` and local `fontURLs` to `.theme(...)`. Gamma validates, registers, and activates them without owning networking or storage policy. After registration, it also checks that every resolver-selected primary and cascade PostScript name is available. Remote themes must preserve the alias contract compiled into the app; a runtime-only payload is schema-validated up front and a missing compiled alias is diagnosed when it is read. See [Using tokens](docs/tokens.md#server-provided-themes-and-fonts).
 
@@ -98,7 +97,8 @@ Server themes use the same runtime path: the app downloads and stores the JSON a
 - [Getting started](docs/getting-started.md) — install a theme and render the first tokens.
 - [Theme format](docs/themes.md) — defaults, colors, fonts, units, and validation rules.
 - [Mode resolution](docs/modes.md) — map appearance, layout direction, and size class to theme modes.
-- [Using tokens](docs/tokens.md) — colors, typography, units, assets, and default styling.
+- [Using tokens](docs/tokens.md) — resolve colors, typography, units, and assets.
+- [Theme extensions](docs/theme-extensions.md) — define, generate, select, validate, and resolve custom token families.
 - [Code generation](docs/code-generation.md) — build and command plugins, CLI use, naming, and troubleshooting.
 - [Overrides](docs/overrides.md) — replace token modes inside one view subtree.
 - [Diagnostics](docs/diagnostics.md) — validation, assertions, fallbacks, and debug logging.

@@ -22,78 +22,7 @@ struct Card: View {
 
 Generated aliases are plain, typed token names. They keep raw theme keys out of view code while preserving the token kind.
 
-## Custom token families
-
-Define `ThemeExtensionToken` when the theme contains an app-owned token kind. The protocol fixes the shared token structure while leaving each mode's payload to the app.
-
-```swift
-nonisolated public struct GradientToken: ThemeExtensionToken {
-  nonisolated public struct Mode: Decodable {
-    public let stops: [String]
-  }
-
-  public let name: String
-  public let group: String
-  public let modes: [String: Mode]
-}
-
-extension Theme.Gradients: ThemeExtension {
-  public typealias Token = GradientToken
-}
-```
-
-`Theme.Gradients`, `Theme.GradientsAlias`, and `.gradientHero` are generated from the `gradients` root key and `gradient/hero` token key. The consumer supplies only the concrete token payload through the conformance above. Generated markers are public, so their `Token` witness and the token type must also be public.
-
-Register the family at the theme boundary. Gamma then requires the `gradients` root dictionary, validates every token's `name`, `group`, and `modes`, and verifies that the payload decodes as `GradientToken`.
-
-```swift
-AppRoot()
-  .theme(
-    .app,
-    modeResolver: AppThemeModeResolver(),
-    extensions: [ThemeExtensionRegistration(Theme.Gradients.self)]
-  )
-```
-
-Select one arbitrary mode for the family in the app's resolver. This is ordinary resolver policy: it can use any supplied context value or choose a fixed mode when the family has no environment variants.
-
-```swift
-struct AppThemeModeResolver: ThemeModeResolving {
-  func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-    var modes = ResolvedThemeModes(
-      colors: .init(light: "light", dark: "dark"),
-      fonts: .init(primary: "default"),
-      unit: "default"
-    )
-    modes[Theme.Gradients.self] = context.colorScheme == .dark
-      ? "dark"
-      : "light"
-    return modes
-  }
-}
-```
-
-`ThemeProxy.resolve(_:)` returns the concrete payload for that selected mode. A consumer extension therefore only needs to turn its own payload into its rendering type and provide a fallback:
-
-```swift
-public extension ThemeProxy {
-  func gradient(_ alias: Theme.GradientsAlias) -> LinearGradient {
-    guard let mode = resolve(alias) else {
-      return LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom)
-    }
-
-    return LinearGradient(
-      colors: mode.stops.map { color(Theme.ColorAlias(rawValue: $0)) },
-      startPoint: .top,
-      endPoint: .bottom
-    )
-  }
-}
-```
-
-Views now read custom tokens like built-in ones: `theme.gradient(.gradientHero)`. Use the lower-level throwing `ThemeProxy.token(_:)` only when code needs the entire raw token, including its metadata and all modes.
-
-Unregistered top-level keys remain opaque and do not participate in installation validation. A runtime-only server family that is absent from every build input has no generated marker or aliases; declare those manually or include its alias contract in a bundled build-time theme.
+Consumer-defined families can use the same alias-to-value pattern through a small app-owned proxy extension. See [Theme extensions](theme-extensions.md).
 
 ## Colors
 

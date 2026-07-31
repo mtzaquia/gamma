@@ -32,7 +32,10 @@ struct ThemeExtensionTests {
     @Test("A custom root key decodes directly as a keyed token dictionary")
     func flatTokenDictionaryDecodes() throws {
         let theme = try decode(Self.themeJSON)
-        let decodedTokens = try theme.tokens(for: Theme.TestGradients.self)
+        let decodedTokens = try ThemeExtensionTokenCache.tokens(
+            for: Theme.TestGradients.self,
+            in: theme
+        )
         let tokens = try #require(decodedTokens)
         let hero = try #require(tokens["gradient/hero"])
 
@@ -76,6 +79,22 @@ struct ThemeExtensionTests {
 
         #expect(issues.contains {
             $0.path == "gradients" && $0.message == "registered extension payload is missing"
+        })
+    }
+
+    @Test("Registered extensions validate their concrete token payload")
+    func registeredExtensionPayloadIsValidated() throws {
+        let json = Self.themeJSON.replacingOccurrences(
+            of: #""stops": ["color/start", "color/end"]"#,
+            with: #""stops": "invalid""#
+        )
+        let theme = try decode(json)
+        let issues = theme.validationIssues(
+            extensions: [ThemeExtensionRegistration(Theme.TestGradients.self)]
+        )
+
+        #expect(issues.contains {
+            $0.path == "gradients" && $0.message.contains("TestGradientToken")
         })
     }
 
@@ -225,6 +244,7 @@ private struct ExtensionProbe: View {
         return Color.clear
     }
 }
+
 private struct TestExtensionModeResolver: ThemeModeResolving {
     func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
         var modes = ResolvedThemeModes(

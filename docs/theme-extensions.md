@@ -1,0 +1,160 @@
+# Theme extensions
+
+Theme extensions add app-owned token families to the same JSON, code-generation, mode-resolution, and `ThemeProxy` workflow as Gamma's built-in tokens. Gamma owns the shared contract; the app defines each mode's payload and rendering type.
+
+## Define the JSON family
+
+A custom top-level key holds a dictionary keyed directly by token alias. There is no intermediate `values` object. Every token requires `name`, `group`, and a non-empty `modes` dictionary; `description` is optional.
+
+```json
+"gradients": {
+  "gradient/hero": {
+    "name": "Hero",
+    "group": "Brand",
+    "description": "Primary brand gradient",
+    "modes": {
+      "day": { "stops": ["color/start", "color/end"] },
+      "night": { "stops": ["color/end", "color/start"] }
+    }
+  }
+}
+```
+
+Mode names and payloads belong to the app. A family may use appearance variants, responsive variants, one fixed `default`, or any other vocabulary its resolver understands.
+
+## Generated API
+
+For every non-empty custom family in a build input, Gamma generates a family marker, typed alias, and token accessors:
+
+```swift
+public extension Theme {
+  nonisolated enum Gradients: ThemeExtensionKey {
+    public static let key = "gradients"
+  }
+
+  typealias GradientsAlias = ThemeExtensionAlias<Gradients>
+}
+
+public extension ThemeExtensionAlias where Extension == Theme.Gradients {
+  static var gradientHero: Self {
+    Self(rawValue: "gradient/hero")
+  }
+}
+```
+
+Accessor names may repeat across families because their alias types differ. Nested type names must remain unique: a `gradients` family and a `Gradients` unit group would both generate `Theme.GradientsAlias`, so generation fails with both sources.
+
+The roots `id`, `defaults`, `colors`, `fonts`, `units`, `assets`, and `illustrations` are reserved. Empty custom dictionaries do not generate declarations. Multiple theme variants in one target must expose the same non-empty custom families and token keys.
+
+## Define the payload
+
+The generator cannot infer the Swift representation of a mode payload. Define it by conforming a token type to `ThemeExtensionToken`, then connect that type to the generated marker:
+
+```swift
+nonisolated public struct GradientToken: ThemeExtensionToken {
+  nonisolated public struct Mode: Decodable {
+    public let stops: [String]
+  }
+
+  public let name: String
+  public let group: String
+  public let modes: [String: Mode]
+}
+
+extension Theme.Gradients: ThemeExtension {
+  public typealias Token = GradientToken
+}
+```
+
+Generated markers are public, so a public conformance requires a public token type and `Token` witness. In a main-actor-by-default target, declare the token and mode types `nonisolated` so `Decodable` synthesis remains available.
+
+## Select a mode
+
+`ResolvedThemeModes` stores one arbitrary mode name per typed family. The resolver may use any `ThemeModeContext` input or choose a fixed value:
+
+```swift
+struct AppThemeModeResolver: ThemeModeResolving {
+  func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
+    var modes = ResolvedThemeModes(
+      colors: .init(light: "light", dark: "dark"),
+      fonts: .init(primary: "default"),
+      unit: "default"
+    )
+    modes[Theme.Gradients.self] = context.colorScheme == .dark
+      ? "night"
+      : "day"
+    return modes
+  }
+}
+```
+
+The type key keeps unrelated families distinct even when they use the same mode names. A family that does not care about appearance could instead select from size class, layout direction, resolver state, or a fixed value such as `modes[Theme.Gradients.self] = "default"`.
+
+## Register the family
+
+Register each family alongside the resolver that selects its mode:
+
+```swift
+AppRoot()
+  .theme(
+    .app,
+    modeResolver: AppThemeModeResolver(),
+    extensions: [ThemeExtensionRegistration(Theme.Gradients.self)]
+  )
+```
+
+The overloads that use `DefaultThemeModeResolver` do not accept registrations because the standard resolver has no custom family selections.
+
+## Resolve the selected payload
+
+`ThemeProxy.resolve(_:)` returns the family-specific `Token.Mode`. Keep the app-owned proxy method focused on conversion and fallback:
+
+```swift
+public extension ThemeProxy {
+  func gradient(_ alias: Theme.GradientsAlias) -> LinearGradient {
+    guard let mode = resolve(alias) else {
+      return LinearGradient(
+        colors: [.clear],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+    }
+
+    return LinearGradient(
+      colors: mode.stops.map { color(Theme.ColorAlias(rawValue: $0)) },
+      startPoint: .top,
+      endPoint: .bottom
+    )
+  }
+}
+```
+
+Views now use the custom family like a built-in one:
+
+```swift
+@ThemeReader private var theme
+
+var body: some View {
+  Rectangle()
+    .fill(theme.gradient(.gradientHero))
+}
+```
+
+## Validation and failures
+
+Unregistered top-level keys remain opaque during runtime validation. A registration adds these installation checks:
+
+- the root key exists and holds a keyed token dictionary;
+- aliases and names are non-empty;
+- every token contains string `name` and `group` fields plus a non-empty `modes` dictionary;
+- the full dictionary decodes as the family's concrete token type;
+- the resolver selects a non-empty mode for the family;
+- every token contains that selected mode.
+
+Failures join Gamma's consolidated warning and trigger a debug assertion. In release builds, `ThemeProxy.resolve(_:)` returns `nil` for a missing selection, token, mode, or invalid payload; the app-owned proxy method supplies the domain fallback.
+
+## Runtime-only families
+
+Generated aliases come only from build inputs. A server theme must preserve that compiled alias contract. If a runtime-only family is absent from every build input, declare its `ThemeExtensionKey` marker and aliases manually or include its alias contract in a bundled build-time theme.
+
+Next: [Theme format](themes.md) · [Mode resolution](modes.md) · [Using tokens](tokens.md)

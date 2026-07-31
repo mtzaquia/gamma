@@ -90,7 +90,8 @@ public extension ThemeProxy {
     ///
     /// The active ``ThemeModeResolving`` implementation selects the mode name
     /// for each custom family. This method decodes the token and returns that
-    /// mode's concrete payload type.
+    /// mode's concrete payload type. Failures produce a Gamma resolution
+    /// diagnostic and return `nil` in release builds.
     ///
     /// - Parameter alias: The typed token alias to resolve.
     /// - Returns: The selected mode payload, or `nil` when the family, token,
@@ -143,21 +144,6 @@ public extension ThemeProxy {
             )
             return nil
         }
-    }
-
-    /// Returns one raw token from a consumer-defined theme extension.
-    ///
-    /// The extension payload is decoded once per installed theme and extension
-    /// type, then reused by subsequent token lookups.
-    ///
-    /// - Parameter alias: The typed token alias to resolve.
-    /// - Returns: The extension token, or `nil` when the extension or alias is absent.
-    /// - Throws: A decoding error when the extension payload does not match its token type.
-    func token<Extension: ThemeExtension>(
-        _ alias: ThemeExtensionAlias<Extension>
-    ) throws -> Extension.Token? {
-        let snapshot = currentSnapshot
-        return try ThemeExtensionTokenCache.tokens(for: Extension.self, in: snapshot.theme)?[alias.rawValue]
     }
 
     /// Resolves a color alias to a `Color` that adapts to light and dark mode.

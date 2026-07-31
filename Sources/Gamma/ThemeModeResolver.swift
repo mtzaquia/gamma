@@ -36,8 +36,7 @@ nonisolated public struct ThemeModeContext: Hashable, Sendable {
     /// Creates the context supplied to a theme mode resolver.
     ///
     /// - Parameters:
-    ///   - colorScheme: The current appearance. The default preserves source
-    ///     compatibility for callers that construct contexts directly.
+    ///   - colorScheme: The current appearance. Defaults to `.light`.
     ///   - layoutDirection: The current writing direction.
     ///   - horizontalSizeClass: The current horizontal size class, if available.
     public init(

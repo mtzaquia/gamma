@@ -4,7 +4,7 @@ Gamma reports schema drift at the boundary where it can still be understood: the
 
 ## Decode-time validation
 
-`RawTheme` validates the complete schema during `Decodable` initialization. Semantic issues that can be evaluated together are returned in one `DecodingError` whose description contains every discovered path. Structural type mismatches and invalid enum values report their decoding path normally.
+`RawTheme` validates its built-in schema during `Decodable` initialization. Semantic issues that can be evaluated together are returned in one `DecodingError` whose description contains every discovered path. Structural type mismatches and invalid enum values report their decoding path normally.
 
 ```swift
 do {
@@ -15,8 +15,6 @@ do {
 ```
 
 This includes broken defaults, token metadata, empty mode dictionaries, invalid colors, invalid font metrics, unknown text cases, and non-finite units.
-
-Consumer-defined root keys remain opaque at decode time because `RawTheme` does not know their token type. Passing `ThemeExtensionRegistration` values to `.theme(..., extensions:)` validates those dictionaries during installation. Missing keys, malformed shared metadata, empty modes, missing resolver selections, selected-mode drift, and consumer-specific decoding failures join the consolidated theme diagnostic.
 
 ## Font registration
 
@@ -46,9 +44,10 @@ After reporting a failure, release builds keep rendering with deliberately consp
 | Missing font token or primary mode | Preferred system body font. |
 | Unavailable selected PostScript font name | UIKit substitutes an available face after Gamma reports it. |
 | Missing unit token or mode | `0`. |
-| Missing custom token, selection, or selected mode | `ThemeProxy.resolve(_:)` returns `nil`; the consumer accessor supplies its domain fallback. |
 
 Fallbacks are a last line of defense, not schema defaults. Fix the diagnostic rather than designing around them.
+
+Consumer-defined families have additional installation checks and app-owned fallbacks; see [Theme extensions](theme-extensions.md#validation-and-failures).
 
 ## Optional debug logs
 

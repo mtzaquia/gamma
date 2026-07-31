@@ -33,17 +33,14 @@ public extension View {
     /// - Parameters:
     ///   - resource: The generated theme resource to install.
     ///   - bundle: The bundle that contains the resource.
-    ///   - extensions: Consumer-defined token families to validate during installation.
     ///   - fontURLs: Local font-file URLs to register before rendering.
     func theme(
         _ resource: ThemeResource,
         bundle: Bundle = .main,
-        extensions: [ThemeExtensionRegistration] = [],
         fontURLs: [URL] = []
     ) -> some View {
         theme(
             ThemeResourceCache.load(resource, from: bundle),
-            extensions: extensions,
             fontURLs: fontURLs
         )
     }
@@ -53,7 +50,7 @@ public extension View {
     /// - Parameters:
     ///   - resource: The generated theme resource to install.
     ///   - bundle: The bundle that contains the resource.
-    ///   - modeResolver: The policy that selects color, font, and unit modes.
+    ///   - modeResolver: The policy that selects built-in and custom token modes.
     ///   - extensions: Consumer-defined token families to validate during installation.
     ///   - fontURLs: Local font-file URLs to register before rendering.
     func theme<ModeResolver: ThemeModeResolving>(
@@ -75,17 +72,14 @@ public extension View {
     ///
     /// - Parameters:
     ///   - rawTheme: The decoded theme to activate.
-    ///   - extensions: Consumer-defined token families to validate during installation.
     ///   - fontURLs: Local font-file URLs to register before rendering.
     func theme(
         _ rawTheme: RawTheme,
-        extensions: [ThemeExtensionRegistration] = [],
         fontURLs: [URL] = []
     ) -> some View {
         theme(
             rawTheme,
             modeResolver: DefaultThemeModeResolver(),
-            extensions: extensions,
             fontURLs: fontURLs
         )
     }
@@ -94,7 +88,7 @@ public extension View {
     ///
     /// - Parameters:
     ///   - rawTheme: The decoded theme to activate.
-    ///   - modeResolver: The policy that selects color, font, and unit modes.
+    ///   - modeResolver: The policy that selects built-in and custom token modes.
     ///   - extensions: Consumer-defined token families to validate during installation.
     ///   - fontURLs: Local font-file URLs to register before rendering.
     func theme<ModeResolver: ThemeModeResolving>(

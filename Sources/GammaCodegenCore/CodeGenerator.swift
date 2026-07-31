@@ -234,10 +234,7 @@ private extension GammaCodeGenerator {
     }
 
     struct ExtensionToken: Decodable {
-        let name: String
-        let group: String
         let description: String?
-        let modes: [String: ThemeJSONValue]
 
         private enum CodingKeys: String, CodingKey {
             case name, group, description, modes
@@ -245,10 +242,10 @@ private extension GammaCodeGenerator {
 
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            name = try container.decode(String.self, forKey: .name)
-            group = try container.decode(String.self, forKey: .group)
+            let name = try container.decode(String.self, forKey: .name)
+            _ = try container.decode(String.self, forKey: .group)
             description = try container.decodeIfPresent(String.self, forKey: .description)
-            modes = try container.decode([String: ThemeJSONValue].self, forKey: .modes)
+            let modes = try container.decode([String: ThemeJSONValue].self, forKey: .modes)
 
             if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 throw DecodingError.dataCorruptedError(

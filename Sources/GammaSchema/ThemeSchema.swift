@@ -222,53 +222,6 @@ public struct RawTheme: Decodable, Identifiable, Hashable, Sendable {
     }
 }
 
-/// A token stored under a consumer-defined top-level theme key.
-///
-/// Conforming types define the metadata shared by every extension token and
-/// the concrete value stored under each mode name. In a target whose default
-/// isolation is `MainActor`, declare the token and mode types `nonisolated` so
-/// their synthesized `Decodable` conformances can run during theme decoding.
-public protocol ThemeExtensionToken: Decodable {
-    associatedtype Mode: Decodable
-
-    /// The display name supplied by the theme producer.
-    var name: String { get }
-    /// The group used to organize related tokens.
-    var group: String { get }
-    /// The token values keyed by mode name.
-    var modes: [String: Mode] { get }
-}
-
-/// Identifies one consumer-defined top-level token family in a theme document.
-public protocol ThemeExtensionKey {
-    /// The top-level JSON key whose value is the family's token dictionary.
-    static var key: String { get }
-}
-
-/// Connects a theme extension family to its consumer-defined token payload.
-public protocol ThemeExtension: ThemeExtensionKey {
-    associatedtype Token: ThemeExtensionToken
-}
-
-public extension RawTheme {
-    /// Decodes the keyed token dictionary for a consumer-defined theme extension.
-    ///
-    /// Unknown top-level theme values remain opaque until requested through this
-    /// method. A missing extension returns `nil`; an incompatible payload throws
-    /// its decoding error.
-    ///
-    /// - Parameter family: The extension family that defines the JSON key and token type.
-    /// - Returns: Tokens keyed by their raw aliases, or `nil` when the key is absent.
-    /// - Throws: An encoding or decoding error when the preserved JSON does not match the token type.
-    func tokens<Extension: ThemeExtension>(
-        for family: Extension.Type
-    ) throws -> [String: Extension.Token]? {
-        guard let payload = extensionPayloads[Extension.key] else { return nil }
-        let data = try JSONEncoder().encode(payload)
-        return try JSONDecoder().decode([String: Extension.Token].self, from: data)
-    }
-}
-
 package struct RawDefaults: Decodable, Hashable, Sendable {
     package let font: String
     package let primaryTextColor: String

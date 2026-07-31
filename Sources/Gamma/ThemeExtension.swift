@@ -24,16 +24,39 @@ import GammaSchema
 import Foundation
 
 /// A token stored under a consumer-defined top-level theme key.
-public typealias ThemeExtensionToken = GammaSchema.ThemeExtensionToken
+///
+/// Conforming types define the metadata shared by every extension token and
+/// the concrete value stored under each mode name. In a target whose default
+/// isolation is `MainActor`, declare the token and mode types `nonisolated` so
+/// their synthesized `Decodable` conformances can run during theme decoding.
+nonisolated public protocol ThemeExtensionToken: Decodable {
+    /// The concrete value decoded for one mode.
+    associatedtype Mode: Decodable
 
-/// A generated or manually declared identity for a theme extension family.
-public typealias ThemeExtensionKey = GammaSchema.ThemeExtensionKey
+    /// The display name supplied by the theme producer.
+    var name: String { get }
+
+    /// The group used to organize related tokens.
+    var group: String { get }
+
+    /// The token values keyed by mode name.
+    var modes: [String: Mode] { get }
+}
+
+/// Identifies one consumer-defined top-level token family in a theme document.
+nonisolated public protocol ThemeExtensionKey {
+    /// The top-level JSON key whose value is the family's token dictionary.
+    static var key: String { get }
+}
 
 /// Connects a theme extension family to its consumer-defined token payload.
-public typealias ThemeExtension = GammaSchema.ThemeExtension
+nonisolated public protocol ThemeExtension: ThemeExtensionKey {
+    /// The concrete token decoded for this family.
+    associatedtype Token: ThemeExtensionToken
+}
 
 /// A typed alias for one token in a consumer-defined theme extension.
-public struct ThemeExtensionAlias<Extension: ThemeExtensionKey>: RawRepresentable, Hashable, Sendable {
+nonisolated public struct ThemeExtensionAlias<Extension: ThemeExtensionKey>: RawRepresentable, Hashable, Sendable {
     /// The token key as it appears in the extension's JSON dictionary.
     public var rawValue: String
 
@@ -47,12 +70,11 @@ public struct ThemeExtensionAlias<Extension: ThemeExtensionKey>: RawRepresentabl
 ///
 /// Registration requires the extension's top-level key to exist and contain a
 /// keyed dictionary whose values decode as the extension's token type. Gamma
-/// also validates the shared `name`, `group`, and `modes` structure. When
-/// resolved modes are available, registration requires one selected mode for
-/// the family and verifies that every token contains it.
+/// also validates the shared `name`, `group`, and `modes` structure. During
+/// installation, Gamma requires one resolver-selected mode for the family and
+/// verifies that every token contains it.
 public struct ThemeExtensionRegistration {
     let identifier: ObjectIdentifier
-    let key: String
     let validationImplementation: (RawTheme, ResolvedThemeModes?) -> [ThemeValidationIssue]
 
     /// Creates a registration for a theme extension family.
@@ -60,7 +82,6 @@ public struct ThemeExtensionRegistration {
     /// - Parameter family: The family to decode and validate when its theme is installed.
     public init<Extension: ThemeExtension>(_ family: Extension.Type) {
         identifier = ObjectIdentifier(Extension.self)
-        key = Extension.key
         validationImplementation = { theme, resolvedModes in
             let structuralIssues = theme.extensionValidationIssues(forKey: Extension.key)
             guard structuralIssues.isEmpty else { return structuralIssues }
@@ -168,7 +189,7 @@ enum ThemeExtensionTokenCache {
     private static let cache = BoundedCache<ThemeExtensionTokenCacheKey, Any>(countLimit: 128)
 
     static func tokens<Extension: ThemeExtension>(
-        for family: Extension.Type,
+        for _: Extension.Type,
         in theme: RawTheme
     ) throws -> [String: Extension.Token]? {
         let key = ThemeExtensionTokenCacheKey(
@@ -179,7 +200,9 @@ enum ThemeExtensionTokenCache {
             return cached
         }
 
-        guard let tokens = try theme.tokens(for: family) else { return nil }
+        guard let payload = theme.extensionPayloads[Extension.key] else { return nil }
+        let data = try JSONEncoder().encode(payload)
+        let tokens = try JSONDecoder().decode([String: Extension.Token].self, from: data)
         cache[key] = tokens
         return tokens
     }
