@@ -30,7 +30,7 @@ The plugin recursively discovers files ending exactly in `.theme.json` and direc
 
 If the plug-in does not discover a `*.theme.json` input, it fails the build with the likely filename and target-membership fixes, even when it finds an asset catalogue. A recognized but malformed theme reaches the generator and fails the build with schema diagnostics.
 
-All `*.theme.json` files in one target are treated as variants of one theme family. Their existing JSON format does not change. The plugin generates one token file and checks that every variant defines the same alias contract, failing with both paths when keys or unit groups drift.
+All `*.theme.json` files in one target are treated as variants of one theme family. Their existing JSON format does not change. The plugin generates one token file and checks that every variant defines the same alias contract, failing with both paths when color, font, grouped unit, or custom-family keys drift.
 
 ## Command plugin
 
@@ -88,13 +88,65 @@ swift run gamma-codegen \
 | Font key `font/body` | `Theme.FontAlias.fontBody` |
 | Unit group `Spacing` | `Theme.SpacingAlias` |
 | Unit key `space/medium` | `UnitAlias.spaceMedium` constrained to `Theme.SpacingAlias` |
+| Custom root `gradients` | `Theme.Gradients` and `Theme.GradientsAlias` |
+| Custom key `gradient/hero` | `Theme.GradientsAlias.gradientHero` |
 | Image set `close.imageset` | Icon asset alias `.close` |
 
 Names are normalized into Swift identifiers, leading digits receive an underscore, reserved words are escaped, and raw values are emitted as escaped Swift string literals.
 
 Normalization keeps ASCII letters and digits and treats other characters as separators. For example, `1x/foo` becomes `_1xFoo` and `icon@2x` becomes `icon2x`. A name with no ASCII identifier content fails generation.
 
-Generation fails when distinct source names normalize to the same declaration—for example, `foo-bar` and `foo_bar`. Fix the source names rather than accepting an arbitrary winner.
+Generation fails when distinct source names normalize to the same declaration—for example, `foo-bar` and `foo_bar`. Accessor names may repeat across different alias types, so both `Theme.GradientsAlias.shared` and `Theme.ShadowsAlias.shared` are valid. Nested type names must remain unique: a custom `gradients` family cannot coexist with a `Gradients` unit group because both would declare `Theme.GradientsAlias`.
+
+## Custom token families
+
+Every non-reserved, non-empty top-level dictionary is a custom token family. The root key defines its generated family and alias names; each entry must provide `name`, `group`, and a non-empty `modes` dictionary. `description` is optional and becomes accessor documentation when present.
+
+For this input:
+
+```json
+"gradients": {
+  "gradient/hero": {
+    "name": "Hero",
+    "group": "Brand",
+    "description": "Primary brand gradient",
+    "modes": {
+      "light": { "stops": [] },
+      "dark": { "stops": [] }
+    }
+  }
+}
+```
+
+Gamma generates the family identity and accessors:
+
+```swift
+public extension Theme {
+  nonisolated enum Gradients: ThemeExtensionKey {
+    public static let key = "gradients"
+  }
+
+  typealias GradientsAlias = ThemeExtensionAlias<Gradients>
+}
+
+public extension ThemeExtensionAlias where Extension == Theme.Gradients {
+  static var gradientHero: Self {
+    Self(rawValue: "gradient/hero")
+  }
+}
+```
+
+The generator cannot infer the Swift representation of a custom mode payload. Define that token type in the consuming target and connect it to the generated marker:
+
+```swift
+extension Theme.Gradients: ThemeExtension {
+  public typealias Token = GradientToken
+}
+```
+
+Generated markers are public so their aliases can be exported from application and package targets. The concrete token type used by the public `Token` witness must therefore also be public. In a main-actor-by-default target, declare the token and mode types `nonisolated` so their `Decodable` conformances remain usable during theme decoding.
+
+Custom roots named `id`, `defaults`, `colors`, `fonts`, `units`, `assets`, or `illustrations` are reserved. Empty custom dictionaries are preserved by `RawTheme` but do not generate declarations. When several theme variants are inputs, every non-empty custom family must expose the same token keys.
 
 Pass `--input` more than once to validate and generate a theme family explicitly:
 

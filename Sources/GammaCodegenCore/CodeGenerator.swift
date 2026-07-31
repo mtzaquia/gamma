@@ -116,6 +116,7 @@ private extension GammaCodeGenerator {
         var units: [String: Token] = [:]
         var assets: [String: Asset] = [:]
         var illustrations: [String: Asset] = [:]
+        var extensions: [String: [String: ExtensionToken]] = [:]
 
         private enum CodingKeys: String, CodingKey {
             case colors, fonts, units, assets, illustrations
@@ -128,7 +129,26 @@ private extension GammaCodeGenerator {
             units = try container.decodeIfPresent([String: Token].self, forKey: .units) ?? [:]
             assets = try container.decodeIfPresent([String: Asset].self, forKey: .assets) ?? [:]
             illustrations = try container.decodeIfPresent([String: Asset].self, forKey: .illustrations) ?? [:]
+
+            let rootContainer = try decoder.container(keyedBy: DocumentCodingKey.self)
+            for key in rootContainer.allKeys
+            where !Self.reservedKeys.contains(key.stringValue) {
+                let tokens = try rootContainer.decode([String: ExtensionToken].self, forKey: key)
+                guard !tokens.isEmpty else { continue }
+                if tokens.keys.contains("") {
+                    throw DecodingError.dataCorruptedError(
+                        forKey: key,
+                        in: rootContainer,
+                        debugDescription: "Extension token keys must not be empty"
+                    )
+                }
+                extensions[key.stringValue] = tokens
+            }
         }
+
+        private static let reservedKeys = Set([
+            "id", "defaults", "colors", "fonts", "units", "assets", "illustrations",
+        ])
     }
 
     struct TokenContract {
@@ -140,6 +160,7 @@ private extension GammaCodeGenerator {
         let colors: Set<String>
         let fonts: Set<String>
         let units: Set<UnitAlias>
+        let extensions: [String: Set<String>]
 
         init(document: ThemeDocument) {
             colors = Set(document.colors.keys)
@@ -147,6 +168,7 @@ private extension GammaCodeGenerator {
             units = Set(document.units.map { key, token in
                 UnitAlias(key: key, group: token.group ?? "")
             })
+            extensions = document.extensions.mapValues { Set($0.keys) }
         }
 
         func differences(from reference: Self) -> [String] {
@@ -172,6 +194,19 @@ private extension GammaCodeGenerator {
                         + groups[key, default: ""].debugDescription
                 )
             }
+
+            differences.append(contentsOf: setDifferences(
+                kind: "extension family",
+                values: Set(extensions.keys),
+                reference: Set(reference.extensions.keys)
+            ))
+            for family in Set(extensions.keys).intersection(reference.extensions.keys).sorted() {
+                differences.append(contentsOf: setDifferences(
+                    kind: "extension \(family.debugDescription)",
+                    values: extensions[family, default: []],
+                    reference: reference.extensions[family, default: []]
+                ))
+            }
             return differences
         }
 
@@ -196,6 +231,47 @@ private extension GammaCodeGenerator {
     struct Token: Decodable {
         let group: String?
         let description: String?
+    }
+
+    struct ExtensionToken: Decodable {
+        let name: String
+        let group: String
+        let description: String?
+        let modes: [String: ThemeJSONValue]
+
+        private enum CodingKeys: String, CodingKey {
+            case name, group, description, modes
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            name = try container.decode(String.self, forKey: .name)
+            group = try container.decode(String.self, forKey: .group)
+            description = try container.decodeIfPresent(String.self, forKey: .description)
+            modes = try container.decode([String: ThemeJSONValue].self, forKey: .modes)
+
+            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .name,
+                    in: container,
+                    debugDescription: "Extension token names must not be empty"
+                )
+            }
+            if modes.isEmpty {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .modes,
+                    in: container,
+                    debugDescription: "Extension tokens must define at least one mode"
+                )
+            }
+            if modes.keys.contains("") {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .modes,
+                    in: container,
+                    debugDescription: "Extension mode names must not be empty"
+                )
+            }
+        }
     }
 
     struct Asset: Decodable {
@@ -247,7 +323,7 @@ private extension GammaCodeGenerator {
             throw CodeGenerationError.invalidInput(
                 ([
                     "Theme alias contract drift detected.",
-                    "Every *.theme.json file in one target must define the same color, font, and grouped unit aliases.",
+                    "Every *.theme.json file in one target must define the same color, font, grouped unit, and extension aliases.",
                 ] + diagnostics).joined(separator: "\n")
             )
         }
@@ -394,11 +470,21 @@ private extension GammaCodeGenerator {
 
         let groupedUnits = Dictionary(grouping: document.units) { $0.value.group ?? "" }
             .filter { !$0.key.isEmpty }
-        try validateCollisions(scope: "unit group types", sources: Array(groupedUnits.keys), transform: groupAliasName)
+        try validateThemeTypeCollisions(
+            unitGroups: Array(groupedUnits.keys),
+            extensionFamilies: Array(document.extensions.keys)
+        )
         for (group, units) in groupedUnits {
             try validateCollisions(
                 scope: "unit aliases in group \(group.debugDescription)",
                 sources: units.map(\.key),
+                transform: tokenAccessor
+            )
+        }
+        for (family, tokens) in document.extensions {
+            try validateCollisions(
+                scope: "extension aliases in family \(family.debugDescription)",
+                sources: Array(tokens.keys),
                 transform: tokenAccessor
             )
         }
@@ -461,6 +547,35 @@ private extension GammaCodeGenerator {
             }
         }
 
+        for family in document.extensions.keys.sorted() {
+            let familyType = try extensionFamilyName(family)
+            let aliasType = try groupAliasName(family)
+            writer.blankLine()
+            writer.line("// MARK: - Theme.\(aliasType)")
+            writer.blankLine()
+            writer.block("public extension Theme") { writer in
+                writer.line("/// Identifies custom tokens under the \(swiftStringLiteral(family)) theme key.")
+                writer.block("nonisolated enum \(familyType): ThemeExtensionKey") { writer in
+                    writer.line("/// The top-level JSON key for this token family.")
+                    writer.line("public static let key = \(swiftStringLiteral(family))")
+                }
+                writer.blankLine()
+                writer.line("/// A typed alias for tokens in the \(swiftStringLiteral(family)) family.")
+                writer.line("typealias \(aliasType) = ThemeExtensionAlias<\(familyType)>")
+            }
+            writer.blankLine()
+            try writer.block(
+                "public extension ThemeExtensionAlias where Extension == Theme.\(familyType)"
+            ) { writer in
+                for (key, token) in document.extensions[family, default: [:]].sorted(by: { $0.key < $1.key }) {
+                    writer.docComment(description: token.description, key: key)
+                    writer.line(
+                        "static var \(try tokenAccessor(key)): Self { Self(rawValue: \(swiftStringLiteral(key))) }"
+                    )
+                }
+            }
+        }
+
         writer.blankLine()
         writer.line("#endif")
         return writer.source
@@ -479,6 +594,40 @@ private extension GammaCodeGenerator {
                 scope: "theme resources",
                 generated: collision.key,
                 sources: collision.value.sorted()
+            )
+        }
+    }
+
+    static func validateThemeTypeCollisions(
+        unitGroups: [String],
+        extensionFamilies: [String]
+    ) throws {
+        var generated: [String: [String]] = [
+            "AssetAlias": ["built-in Theme.AssetAlias"],
+            "ColorAlias": ["built-in Theme.ColorAlias"],
+            "FontAlias": ["built-in Theme.FontAlias"],
+            "IconAlias": ["built-in Theme.IconAlias"],
+        ]
+
+        for group in unitGroups.sorted() {
+            generated[try groupAliasName(group), default: []]
+                .append("unit group \(group.debugDescription)")
+        }
+        for family in extensionFamilies.sorted() {
+            generated[try extensionFamilyName(family), default: []]
+                .append("extension family \(family.debugDescription)")
+            generated[try groupAliasName(family), default: []]
+                .append("extension alias for \(family.debugDescription)")
+        }
+
+        if let collision = generated
+            .filter({ $0.value.count > 1 })
+            .sorted(by: { $0.key < $1.key })
+            .first {
+            throw CodeGenerationError.identifierCollision(
+                scope: "Theme nested types",
+                generated: collision.key,
+                sources: collision.value
             )
         }
     }
@@ -558,6 +707,10 @@ private extension GammaCodeGenerator {
 
     static func groupAliasName(_ source: String) throws -> String {
         escapeReservedKeyword(upperFirst(try swiftIdentifier(source)) + "Alias")
+    }
+
+    static func extensionFamilyName(_ source: String) throws -> String {
+        escapeReservedKeyword(upperFirst(try swiftIdentifier(source)))
     }
 
     static func swiftIdentifier(_ source: String) throws -> String {
@@ -678,6 +831,21 @@ private struct SourceWriter {
                 String(scalar)
             }
         }.joined()
+    }
+}
+
+private struct DocumentCodingKey: CodingKey {
+    let stringValue: String
+    let intValue: Int?
+
+    init(stringValue: String) {
+        self.stringValue = stringValue
+        intValue = nil
+    }
+
+    init?(intValue: Int) {
+        stringValue = String(intValue)
+        self.intValue = intValue
     }
 }
 

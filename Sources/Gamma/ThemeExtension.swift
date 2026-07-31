@@ -1,0 +1,164 @@
+//
+//  Copyright (c) 2026 @mtzaquia
+//
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to deal
+//  in the Software without restriction, including without limitation the rights
+//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//  copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+//
+//  The above copyright notice and this permission notice shall be included in all
+//  copies or substantial portions of the Software.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//  SOFTWARE.
+//
+
+import GammaSchema
+import Foundation
+
+/// A token stored under a consumer-defined top-level theme key.
+public typealias ThemeExtensionToken = GammaSchema.ThemeExtensionToken
+
+/// A generated or manually declared identity for a theme extension family.
+public typealias ThemeExtensionKey = GammaSchema.ThemeExtensionKey
+
+/// Connects a theme extension family to its consumer-defined token payload.
+public typealias ThemeExtension = GammaSchema.ThemeExtension
+
+/// A typed alias for one token in a consumer-defined theme extension.
+public struct ThemeExtensionAlias<Extension: ThemeExtensionKey>: RawRepresentable, Hashable, Sendable {
+    /// The token key as it appears in the extension's JSON dictionary.
+    public var rawValue: String
+
+    /// Creates an alias from a token key.
+    public init(rawValue: String) {
+        self.rawValue = rawValue
+    }
+}
+
+/// Registers a consumer-defined token family for validation during theme installation.
+///
+/// Registration requires the extension's top-level key to exist and contain a
+/// keyed dictionary whose values decode as the extension's token type. Gamma
+/// also validates the shared `name`, `group`, and `modes` structure.
+public struct ThemeExtensionRegistration {
+    let identifier: ObjectIdentifier
+    let key: String
+    let validationImplementation: (RawTheme) -> [ThemeValidationIssue]
+
+    /// Creates a registration for a theme extension family.
+    ///
+    /// - Parameter family: The family to decode and validate when its theme is installed.
+    public init<Extension: ThemeExtension>(_ family: Extension.Type) {
+        identifier = ObjectIdentifier(Extension.self)
+        key = Extension.key
+        validationImplementation = { theme in
+            let structuralIssues = theme.extensionValidationIssues(forKey: Extension.key)
+            guard structuralIssues.isEmpty else { return structuralIssues }
+
+            do {
+                _ = try ThemeExtensionTokenCache.tokens(for: Extension.self, in: theme)
+                return []
+            } catch {
+                return [ThemeValidationIssue(
+                    path: Extension.key,
+                    message: "does not match \(String(describing: Extension.Token.self)): "
+                        + themeDecodingDescription(error)
+                )]
+            }
+        }
+    }
+}
+
+extension RawTheme {
+    func extensionValidationIssues(forKey key: String) -> [ThemeValidationIssue] {
+        guard !key.isEmpty else {
+            return [.init(path: "extensions", message: "extension key must not be empty")]
+        }
+        guard let payload = extensionPayloads[key] else {
+            return [.init(path: key, message: "registered extension payload is missing")]
+        }
+        guard case let .object(tokens) = payload else {
+            return [.init(path: key, message: "expected a keyed token dictionary")]
+        }
+
+        var issues: [ThemeValidationIssue] = []
+        for (alias, payload) in tokens {
+            let path = "\(key).\(alias)"
+            if alias.isEmpty {
+                issues.append(.init(path: key, message: "token key must not be empty"))
+            }
+            guard case let .object(token) = payload else {
+                issues.append(.init(path: path, message: "expected a token object"))
+                continue
+            }
+
+            switch token["name"] {
+            case let .string(name) where !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:
+                break
+            case .string:
+                issues.append(.init(path: "\(path).name", message: "token name must not be empty"))
+            case nil:
+                issues.append(.init(path: "\(path).name", message: "field is required"))
+            default:
+                issues.append(.init(path: "\(path).name", message: "expected a string"))
+            }
+
+            switch token["group"] {
+            case .string:
+                break
+            case nil:
+                issues.append(.init(path: "\(path).group", message: "field is required"))
+            default:
+                issues.append(.init(path: "\(path).group", message: "expected a string"))
+            }
+
+            switch token["modes"] {
+            case let .object(modes) where modes.isEmpty:
+                issues.append(.init(path: "\(path).modes", message: "token must define at least one mode"))
+            case let .object(modes):
+                for mode in modes.keys where mode.isEmpty {
+                    issues.append(.init(path: "\(path).modes", message: "mode name must not be empty"))
+                }
+            case nil:
+                issues.append(.init(path: "\(path).modes", message: "field is required"))
+            default:
+                issues.append(.init(path: "\(path).modes", message: "expected a keyed mode dictionary"))
+            }
+        }
+        return issues
+    }
+}
+
+private struct ThemeExtensionTokenCacheKey: Hashable {
+    let themeInstanceID: UUID
+    let extensionType: ObjectIdentifier
+}
+
+enum ThemeExtensionTokenCache {
+    private static let cache = BoundedCache<ThemeExtensionTokenCacheKey, Any>(countLimit: 128)
+
+    static func tokens<Extension: ThemeExtension>(
+        for family: Extension.Type,
+        in theme: RawTheme
+    ) throws -> [String: Extension.Token]? {
+        let key = ThemeExtensionTokenCacheKey(
+            themeInstanceID: theme.instanceID,
+            extensionType: ObjectIdentifier(Extension.self)
+        )
+        if let cached = cache[key] as? [String: Extension.Token] {
+            return cached
+        }
+
+        guard let tokens = try theme.tokens(for: family) else { return nil }
+        cache[key] = tokens
+        return tokens
+    }
+}

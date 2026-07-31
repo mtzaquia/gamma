@@ -33,6 +33,7 @@ public struct ThemeProxy: DynamicProperty {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.theme) private var theme
     @Environment(\.themeModeResolver) private var modeResolver
+    @Environment(\.themeExtensions) private var themeExtensions
 
     private var snapshot: Snapshot?
 
@@ -49,7 +50,11 @@ public struct ThemeProxy: DynamicProperty {
                 horizontalSizeClass: horizontalSizeClass
             )
         )
-        ThemeDiagnostics.validate(theme, resolvedModes: modes)
+        ThemeDiagnostics.validate(
+            theme,
+            resolvedModes: modes,
+            extensions: themeExtensions
+        )
         return Snapshot(
             theme: theme,
             modes: modes,
@@ -78,6 +83,21 @@ public struct ThemeProxy: DynamicProperty {
 }
 
 public extension ThemeProxy {
+    /// Returns one raw token from a consumer-defined theme extension.
+    ///
+    /// The extension payload is decoded once per installed theme and extension
+    /// type, then reused by subsequent token lookups.
+    ///
+    /// - Parameter alias: The typed token alias to resolve.
+    /// - Returns: The extension token, or `nil` when the extension or alias is absent.
+    /// - Throws: A decoding error when the extension payload does not match its token type.
+    func token<Extension: ThemeExtension>(
+        _ alias: ThemeExtensionAlias<Extension>
+    ) throws -> Extension.Token? {
+        let snapshot = currentSnapshot
+        return try ThemeExtensionTokenCache.tokens(for: Extension.self, in: snapshot.theme)?[alias.rawValue]
+    }
+
     /// Resolves a color alias to a `Color` that adapts to light and dark mode.
     func color(_ alias: Theme.ColorAlias) -> Color {
         let snapshot = currentSnapshot

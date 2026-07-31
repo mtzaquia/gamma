@@ -161,6 +161,93 @@ struct CodeGeneratorTests {
         }
     }
 
+    @Test("Custom token families generate markers, aliases, and accessors")
+    func customTokenFamilyGeneration() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let document = validThemeDocument(extensions: [
+                "gradients": [
+                    "gradient/hero": token(group: "Brand"),
+                    "something": token(group: "Brand"),
+                ],
+            ])
+            try write(document, to: input)
+
+            let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
+
+            #expect(source.contains("nonisolated enum Gradients: ThemeExtensionKey"))
+            #expect(source.contains(#"public static let key = "gradients""#))
+            #expect(source.contains("typealias GradientsAlias = ThemeExtensionAlias<Gradients>"))
+            #expect(source.contains("Extension == Theme.Gradients"))
+            #expect(source.contains(#"static var gradientHero: Self { Self(rawValue: "gradient/hero") }"#))
+            #expect(source.contains(#"static var something: Self { Self(rawValue: "something") }"#))
+        }
+    }
+
+    @Test("Accessor names may repeat across custom token families")
+    func customAccessorNamesAreScopedByFamily() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let document = validThemeDocument(extensions: [
+                "gradients": ["shared": token(group: "Brand")],
+                "shadows": ["shared": token(group: "Elevation")],
+            ])
+            try write(document, to: input)
+
+            let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
+
+            #expect(source.components(separatedBy: "static var shared").count - 1 == 2)
+            #expect(source.contains("Extension == Theme.Gradients"))
+            #expect(source.contains("Extension == Theme.Shadows"))
+        }
+    }
+
+    @Test("Custom family aliases cannot collide with other Theme nested types")
+    func customFamilyTypeCollision() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let document = validThemeDocument(
+                units: ["space/default": token(group: "Gradients")],
+                extensions: ["gradients": ["hero": token(group: "Brand")]]
+            )
+            try write(document, to: input)
+
+            do {
+                _ = try GammaCodeGenerator.generate(inputURL: input, template: .tokens)
+                Issue.record("Expected nested Theme type collision to fail generation")
+            } catch {
+                #expect(error.localizedDescription.contains("GradientsAlias"))
+                #expect(error.localizedDescription.contains("unit group"))
+                #expect(error.localizedDescription.contains("extension alias"))
+            }
+        }
+    }
+
+    @Test("Malformed custom token metadata fails generation")
+    func malformedCustomTokenFailsGeneration() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let document = validThemeDocument(extensions: [
+                "gradients": [
+                    "gradient/hero": [
+                        "name": "",
+                        "group": "Brand",
+                        "modes": ["light": [:]],
+                    ],
+                ],
+            ])
+            try write(document, to: input)
+
+            do {
+                _ = try GammaCodeGenerator.generate(inputURL: input, template: .tokens)
+                Issue.record("Expected custom token validation to fail generation")
+            } catch {
+                #expect(error.localizedDescription.contains(input.path))
+                #expect(error.localizedDescription.contains("gradients.gradient/hero.name"))
+            }
+        }
+    }
+
     @Test("Generation rejects a malformed theme through the shared schema")
     func malformedThemeFailsGeneration() throws {
         try withTemporaryDirectory { directory in
@@ -230,6 +317,38 @@ struct CodeGeneratorTests {
         }
     }
 
+    @Test("Multiple theme variants fail when custom extension aliases drift")
+    func driftingCustomExtensionsFailTogether() throws {
+        try withTemporaryDirectory { directory in
+            let first = directory.appendingPathComponent("Day.theme.json")
+            let second = directory.appendingPathComponent("Night.theme.json")
+            try write(validThemeDocument(
+                id: "day",
+                extensions: ["gradients": ["gradient/hero": token(group: "Brand")]]
+            ), to: first)
+            try write(validThemeDocument(
+                id: "night",
+                extensions: ["gradients": [
+                    "gradient/hero": token(group: "Brand"),
+                    "gradient/night-only": token(group: "Brand"),
+                ]]
+            ), to: second)
+
+            do {
+                _ = try GammaCodeGenerator.generate(
+                    inputURLs: [first, second],
+                    template: .tokens
+                )
+                Issue.record("Expected custom extension contract drift to fail generation")
+            } catch {
+                #expect(error.localizedDescription.contains(first.path))
+                #expect(error.localizedDescription.contains(second.path))
+                #expect(error.localizedDescription.contains("gradient/night-only"))
+                #expect(error.localizedDescription.contains("gradients"))
+            }
+        }
+    }
+
     @Test("CLI accepts repeated inputs and expands both templates")
     func commandOptionsSupportThemeFamilies() throws {
         let options = try CodeGenerationCommandOptions(arguments: [
@@ -264,13 +383,14 @@ struct CodeGeneratorTests {
         id: String = "codegen-test",
         colors: [String: Any] = [:],
         units: [String: Any]? = nil,
+        extensions: [String: Any] = [:],
         colorGroup: String = "Test",
         fontGroup: String = "Typography"
     ) -> [String: Any] {
         var colors = colors
         colors["color/default"] = colorToken(group: colorGroup)
         let units = units ?? ["space/default": token(group: "Spacing")]
-        return [
+        var document: [String: Any] = [
             "id": id,
             "defaults": [
                 "font": "font/default",
@@ -280,6 +400,10 @@ struct CodeGeneratorTests {
             "fonts": ["font/default": fontToken(group: fontGroup)],
             "units": units,
         ]
+        for (key, value) in extensions {
+            document[key] = value
+        }
+        return document
     }
 
     private func colorToken(group: String = "Test") -> [String: Any] {

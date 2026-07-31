@@ -16,6 +16,8 @@ do {
 
 This includes broken defaults, token metadata, empty mode dictionaries, invalid colors, invalid font metrics, unknown text cases, and non-finite units.
 
+Consumer-defined root keys remain opaque at decode time because `RawTheme` does not know their token type. Passing `ThemeExtensionRegistration` values to `.theme(..., extensions:)` validates those dictionaries during installation. Missing keys, malformed shared metadata, empty modes, and consumer-specific decoding failures join the consolidated theme diagnostic.
+
 ## Font registration
 
 `.theme(..., fontURLs:)` checks every supplied local file before rendering. Unreadable files, missing PostScript names, and Core Text registration errors are collected into one warning and one debug assertion instead of producing a stream of per-file messages. Core Text's already-registered response is treated as success.

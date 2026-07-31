@@ -9,6 +9,7 @@ A theme is a JSON document decoded as `RawTheme`. Token keys are stable identifi
 | `colors` | Dynamic color tokens keyed by alias. |
 | `fonts` | Typography tokens keyed by alias. |
 | `units` | Numeric spacing, sizing, or radius tokens keyed by alias. |
+| Other keys | Consumer-defined token extensions preserved by `RawTheme`. |
 
 Every color, font, and unit entry contains `name`, `group`, `description`, and `modes`. The first three fields are required by the schema; `name` must be non-empty, while `group` and `description` may be empty.
 
@@ -98,6 +99,25 @@ Units are finite numeric values. A non-empty group produces the generated alias 
 
 This group generates `Theme.SpacingAlias`; the token itself is available as `.spaceMedium` where that alias type is inferred. Responsive modes such as `compact` and `regular` remain available through a custom resolver.
 
+## Custom token extensions
+
+An additional top-level key may contain a consumer-defined token family. Its value is directly a dictionary keyed by token alias; there is no intermediate `values` object.
+
+```json
+"gradients": {
+  "gradient/hero": {
+    "name": "Hero",
+    "group": "Brand",
+    "modes": {
+      "light": { "stops": [] },
+      "dark": { "stops": [] }
+    }
+  }
+}
+```
+
+Gamma preserves unregistered top-level keys without interpreting them. For every non-empty custom family in a build input, the generator emits a family marker, alias type, and token accessors. Register the generated marker as a `ThemeExtension` when installing the theme to require that key and validate its common token structure and consumer-defined mode payload.
+
 ## Validation
 
 `RawTheme` rejects malformed schema during decoding. Validation checks:
@@ -108,6 +128,8 @@ This group generates `Theme.SpacingAlias`; the token itself is available as `.sp
 - color format and alpha bounds;
 - font names, metrics, and text case;
 - finite unit values.
+
+Extensions passed to `.theme(..., extensions:)` are validated during installation. Every registered key must exist and contain a keyed dictionary. Each token requires a non-empty alias and `name`, a string `group` that may be empty, and at least one non-empty mode name. The complete dictionary must also decode as the extension's concrete token type.
 
 The modes selected by a resolver are checked when the theme is installed and whenever its resolution context changes. That catches a structurally valid theme whose resolver asks for a mode it does not define. After supplied font files are registered, the selected primary and cascade PostScript names are also checked for availability through UIKit.
 

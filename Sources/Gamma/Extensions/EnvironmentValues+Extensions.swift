@@ -25,5 +25,6 @@ import SwiftUI
 extension EnvironmentValues {
     @Entry var theme: RawTheme = .empty
     @Entry var themeModeResolver: AnyThemeModeResolver = .init(DefaultThemeModeResolver())
+    @Entry var themeExtensions: [ThemeExtensionRegistration] = []
     @Entry var themeFontLineHeight: CGFloat? = nil
 }

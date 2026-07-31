@@ -29,27 +29,44 @@ public extension View {
     /// The decoded value is cached by resource and bundle so repeated SwiftUI
     /// body evaluations do not reread the JSON or create new theme identities.
     /// Use ``ThemeResource/load(from:)`` directly when loading failure is recoverable.
+    ///
+    /// - Parameters:
+    ///   - resource: The generated theme resource to install.
+    ///   - bundle: The bundle that contains the resource.
+    ///   - extensions: Consumer-defined token families to validate during installation.
+    ///   - fontURLs: Local font-file URLs to register before rendering.
     func theme(
         _ resource: ThemeResource,
         bundle: Bundle = .main,
+        extensions: [ThemeExtensionRegistration] = [],
         fontURLs: [URL] = []
     ) -> some View {
         theme(
             ThemeResourceCache.load(resource, from: bundle),
+            extensions: extensions,
             fontURLs: fontURLs
         )
     }
 
     /// Loads a generated bundled theme and injects it with a custom mode resolver.
+    ///
+    /// - Parameters:
+    ///   - resource: The generated theme resource to install.
+    ///   - bundle: The bundle that contains the resource.
+    ///   - modeResolver: The policy that selects color, font, and unit modes.
+    ///   - extensions: Consumer-defined token families to validate during installation.
+    ///   - fontURLs: Local font-file URLs to register before rendering.
     func theme<ModeResolver: ThemeModeResolving>(
         _ resource: ThemeResource,
         bundle: Bundle = .main,
         modeResolver: ModeResolver,
+        extensions: [ThemeExtensionRegistration] = [],
         fontURLs: [URL] = []
     ) -> some View {
         theme(
             ThemeResourceCache.load(resource, from: bundle),
             modeResolver: modeResolver,
+            extensions: extensions,
             fontURLs: fontURLs
         )
     }
@@ -58,11 +75,17 @@ public extension View {
     ///
     /// - Parameters:
     ///   - rawTheme: The decoded theme to activate.
+    ///   - extensions: Consumer-defined token families to validate during installation.
     ///   - fontURLs: Local font-file URLs to register before rendering.
-    func theme(_ rawTheme: RawTheme, fontURLs: [URL] = []) -> some View {
+    func theme(
+        _ rawTheme: RawTheme,
+        extensions: [ThemeExtensionRegistration] = [],
+        fontURLs: [URL] = []
+    ) -> some View {
         theme(
             rawTheme,
             modeResolver: DefaultThemeModeResolver(),
+            extensions: extensions,
             fontURLs: fontURLs
         )
     }
@@ -72,16 +95,19 @@ public extension View {
     /// - Parameters:
     ///   - rawTheme: The decoded theme to activate.
     ///   - modeResolver: The policy that selects color, font, and unit modes.
+    ///   - extensions: Consumer-defined token families to validate during installation.
     ///   - fontURLs: Local font-file URLs to register before rendering.
     func theme<ModeResolver: ThemeModeResolving>(
         _ rawTheme: RawTheme,
         modeResolver: ModeResolver,
+        extensions: [ThemeExtensionRegistration] = [],
         fontURLs: [URL] = []
     ) -> some View {
         self
             .modifier(ThemeModifier(defaults: rawTheme.defaults, fontURLs: fontURLs))
             .environment(\.theme, rawTheme)
             .environment(\.themeModeResolver, AnyThemeModeResolver(modeResolver))
+            .environment(\.themeExtensions, extensions)
     }
 }
 

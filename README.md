@@ -12,6 +12,7 @@ Describe colors, typography, and units in one JSON theme. Decide how its modes m
 - Dynamic colors that follow light and dark appearance.
 - Typography that scales with Dynamic Type and cascades across scripts.
 - Units that can adapt to size class or any policy your design system names.
+- Consumer-defined keyed token families validated when the theme is installed.
 - Scoped token overrides without replacing the installed theme.
 - Bundled or server-provided themes, with registration of app-supplied local font files.
 - Swift-native generation through Xcode, SwiftPM, or a command-line executable.

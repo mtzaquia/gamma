@@ -28,8 +28,12 @@ import UIKit
 package typealias ThemeValidationIssue = GammaSchema.ThemeValidationIssue
 
 extension RawTheme {
-    func validationIssues(resolvedModes: ResolvedThemeModes? = nil) -> [ThemeValidationIssue] {
+    func validationIssues(
+        resolvedModes: ResolvedThemeModes? = nil,
+        extensions: [ThemeExtensionRegistration] = []
+    ) -> [ThemeValidationIssue] {
         var issues = schemaValidationIssues()
+        issues.append(contentsOf: extensions.flatMap { $0.validationImplementation(self) })
 
         guard let resolvedModes else {
             return issues.sortedForDiagnostics()
@@ -91,12 +95,16 @@ enum ThemeDiagnostics {
     static func validate(
         _ theme: RawTheme,
         resolvedModes: ResolvedThemeModes,
+        extensions: [ThemeExtensionRegistration] = [],
         additionalIssues: [ThemeValidationIssue] = []
     ) {
-        let key = validationKey(theme: theme, modes: resolvedModes)
+        let key = validationKey(theme: theme, modes: resolvedModes, extensions: extensions)
         guard markReported(key) else { return }
 
-        let issues = (theme.validationIssues(resolvedModes: resolvedModes) + additionalIssues)
+        let issues = (
+            theme.validationIssues(resolvedModes: resolvedModes, extensions: extensions)
+                + additionalIssues
+        )
             .uniqueSortedForDiagnostics()
 
         guard !issues.isEmpty else {
@@ -161,9 +169,14 @@ enum ThemeDiagnostics {
 
     private static func validationKey(
         theme: RawTheme,
-        modes: ResolvedThemeModes
+        modes: ResolvedThemeModes,
+        extensions: [ThemeExtensionRegistration]
     ) -> String {
-        "validation|\(theme.instanceID)|\(theme.overrideHash)|\(modes)"
+        let extensionIdentity = extensions
+            .map { "\($0.identifier)" }
+            .sorted()
+            .joined(separator: ",")
+        return "validation|\(theme.instanceID)|\(theme.overrideHash)|\(modes)|\(extensionIdentity)"
     }
 
     private static func markReported(_ key: String) -> Bool {

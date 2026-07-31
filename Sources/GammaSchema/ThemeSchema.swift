@@ -26,21 +26,96 @@ import Foundation
 package func themeDecodingDescription(_ error: any Error) -> String {
     switch error {
     case let DecodingError.dataCorrupted(context):
-        context.debugDescription
+        let path = codingPath(context.codingPath)
+        return path == "<root>" ? context.debugDescription : "\(path): \(context.debugDescription)"
     case let DecodingError.keyNotFound(key, context):
-        "missing key \(key.stringValue.debugDescription) at \(codingPath(context.codingPath))"
+        return "missing key \(key.stringValue.debugDescription) at \(codingPath(context.codingPath))"
     case let DecodingError.typeMismatch(type, context):
-        "expected \(type) at \(codingPath(context.codingPath)): \(context.debugDescription)"
+        return "expected \(type) at \(codingPath(context.codingPath)): \(context.debugDescription)"
     case let DecodingError.valueNotFound(type, context):
-        "missing \(type) at \(codingPath(context.codingPath)): \(context.debugDescription)"
+        return "missing \(type) at \(codingPath(context.codingPath)): \(context.debugDescription)"
     default:
-        error.localizedDescription
+        return error.localizedDescription
     }
 }
 
 private func codingPath(_ codingPath: [any CodingKey]) -> String {
     let path = codingPath.map(\.stringValue).joined(separator: ".")
     return path.isEmpty ? "<root>" : path
+}
+
+private struct ThemeCodingKey: CodingKey {
+    let stringValue: String
+    let intValue: Int?
+
+    init(stringValue: String) {
+        self.stringValue = stringValue
+        intValue = nil
+    }
+
+    init?(intValue: Int) {
+        stringValue = String(intValue)
+        self.intValue = intValue
+    }
+}
+
+package enum ThemeJSONValue: Codable, Hashable, Sendable {
+    case null
+    case boolean(Bool)
+    case signedInteger(Int64)
+    case unsignedInteger(UInt64)
+    case number(Double)
+    case string(String)
+    case array([Self])
+    case object([String: Self])
+
+    package init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(Bool.self) {
+            self = .boolean(value)
+        } else if let value = try? container.decode(Int64.self) {
+            self = .signedInteger(value)
+        } else if let value = try? container.decode(UInt64.self) {
+            self = .unsignedInteger(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .number(value)
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode([Self].self) {
+            self = .array(value)
+        } else if let value = try? container.decode([String: Self].self) {
+            self = .object(value)
+        } else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Expected a JSON value"
+            )
+        }
+    }
+
+    package func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .null:
+            try container.encodeNil()
+        case let .boolean(value):
+            try container.encode(value)
+        case let .signedInteger(value):
+            try container.encode(value)
+        case let .unsignedInteger(value):
+            try container.encode(value)
+        case let .number(value):
+            try container.encode(value)
+        case let .string(value):
+            try container.encode(value)
+        case let .array(value):
+            try container.encode(value)
+        case let .object(value):
+            try container.encode(value)
+        }
+    }
 }
 
 /// A single validation problem in a decoded theme document.
@@ -67,13 +142,14 @@ public struct RawTheme: Decodable, Identifiable, Hashable, Sendable {
     package var colors: [String: RawColor]
     package var fonts: [String: RawFont]
     package var units: [String: RawUnit]
+    package let extensionPayloads: [String: ThemeJSONValue]
 
     /// Distinguishes separately decoded payloads even when their logical IDs match.
     package let instanceID: UUID
     /// Composes the dynamic override scopes applied to this value.
     package var overrideHash: Int
 
-    private enum CodingKeys: String, CodingKey {
+    private enum CodingKeys: String, CodingKey, CaseIterable {
         case id, defaults, colors, fonts, units
     }
 
@@ -84,6 +160,16 @@ public struct RawTheme: Decodable, Identifiable, Hashable, Sendable {
         colors = try container.decode([String: RawColor].self, forKey: .colors)
         fonts = try container.decode([String: RawFont].self, forKey: .fonts)
         units = try container.decode([String: RawUnit].self, forKey: .units)
+
+        let rootContainer = try decoder.container(keyedBy: ThemeCodingKey.self)
+        let reservedKeys = Set(CodingKeys.allCases.map(\.rawValue))
+        extensionPayloads = try Dictionary(uniqueKeysWithValues: rootContainer.allKeys.compactMap { key in
+            guard !reservedKeys.contains(key.stringValue) else { return nil }
+            return (
+                key.stringValue,
+                try rootContainer.decode(ThemeJSONValue.self, forKey: key)
+            )
+        })
         instanceID = UUID()
         overrideHash = 0
 
@@ -104,6 +190,7 @@ public struct RawTheme: Decodable, Identifiable, Hashable, Sendable {
         colors: [String: RawColor],
         fonts: [String: RawFont],
         units: [String: RawUnit],
+        extensionPayloads: [String: ThemeJSONValue] = [:],
         instanceID: UUID = UUID(),
         overrideHash: Int = 0
     ) {
@@ -112,6 +199,7 @@ public struct RawTheme: Decodable, Identifiable, Hashable, Sendable {
         self.colors = colors
         self.fonts = fonts
         self.units = units
+        self.extensionPayloads = extensionPayloads
         self.instanceID = instanceID
         self.overrideHash = overrideHash
     }
@@ -131,6 +219,53 @@ public struct RawTheme: Decodable, Identifiable, Hashable, Sendable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(instanceID)
         hasher.combine(overrideHash)
+    }
+}
+
+/// A token stored under a consumer-defined top-level theme key.
+///
+/// Conforming types define the metadata shared by every extension token and
+/// the concrete value stored under each mode name. In a target whose default
+/// isolation is `MainActor`, declare the token and mode types `nonisolated` so
+/// their synthesized `Decodable` conformances can run during theme decoding.
+public protocol ThemeExtensionToken: Decodable {
+    associatedtype Mode: Decodable
+
+    /// The display name supplied by the theme producer.
+    var name: String { get }
+    /// The group used to organize related tokens.
+    var group: String { get }
+    /// The token values keyed by mode name.
+    var modes: [String: Mode] { get }
+}
+
+/// Identifies one consumer-defined top-level token family in a theme document.
+public protocol ThemeExtensionKey {
+    /// The top-level JSON key whose value is the family's token dictionary.
+    static var key: String { get }
+}
+
+/// Connects a theme extension family to its consumer-defined token payload.
+public protocol ThemeExtension: ThemeExtensionKey {
+    associatedtype Token: ThemeExtensionToken
+}
+
+public extension RawTheme {
+    /// Decodes the keyed token dictionary for a consumer-defined theme extension.
+    ///
+    /// Unknown top-level theme values remain opaque until requested through this
+    /// method. A missing extension returns `nil`; an incompatible payload throws
+    /// its decoding error.
+    ///
+    /// - Parameter family: The extension family that defines the JSON key and token type.
+    /// - Returns: Tokens keyed by their raw aliases, or `nil` when the key is absent.
+    /// - Throws: An encoding or decoding error when the preserved JSON does not match the token type.
+    func tokens<Extension: ThemeExtension>(
+        for family: Extension.Type
+    ) throws -> [String: Extension.Token]? {
+        guard let payload = extensionPayloads[Extension.key] else { return nil }
+        let data = try JSONEncoder().encode(payload)
+        return try JSONDecoder().decode([String: Extension.Token].self, from: data)
     }
 }
 

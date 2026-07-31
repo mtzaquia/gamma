@@ -22,6 +22,50 @@ struct Card: View {
 
 Generated aliases are plain, typed token names. They keep raw theme keys out of view code while preserving the token kind.
 
+## Custom token families
+
+Define `ThemeExtensionToken` when the theme contains an app-owned token kind. The protocol fixes the shared token structure while leaving each mode's payload to the app.
+
+```swift
+nonisolated public struct GradientToken: ThemeExtensionToken {
+  nonisolated public struct Mode: Decodable {
+    public let stops: [String]
+  }
+
+  public let name: String
+  public let group: String
+  public let modes: [String: Mode]
+}
+
+extension Theme.Gradients: ThemeExtension {
+  public typealias Token = GradientToken
+}
+```
+
+`Theme.Gradients`, `Theme.GradientsAlias`, and `.gradientHero` are generated from the `gradients` root key and `gradient/hero` token key. The consumer supplies only the concrete token payload through the conformance above. Generated markers are public, so their `Token` witness and the token type must also be public.
+
+Register the family at the theme boundary. Gamma then requires the `gradients` root dictionary, validates every token's `name`, `group`, and `modes`, and verifies that the payload decodes as `GradientToken`.
+
+```swift
+AppRoot()
+  .theme(
+    .app,
+    extensions: [ThemeExtensionRegistration(Theme.Gradients.self)]
+  )
+```
+
+`ThemeProxy.token(_:)` returns the concrete token type. The app remains responsible for choosing and rendering one of its modes.
+
+```swift
+@ThemeReader private var theme
+
+private var heroGradient: GradientToken? {
+  try? theme.token(.gradientHero)
+}
+```
+
+Unregistered top-level keys remain opaque and do not participate in installation validation. A runtime-only server family that is absent from every build input has no generated marker or aliases; declare those manually or include its alias contract in a bundled build-time theme.
+
 ## Colors
 
 `theme.color(...)` returns a SwiftUI `Color` backed by a dynamic `UIColor`. The same value follows light and dark appearance without resolving the view again solely for color scheme.
