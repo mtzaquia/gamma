@@ -271,6 +271,11 @@ private extension GammaCodeGenerator {
         }
     }
 
+    struct TokenAccessorDeclaration {
+        let key: String
+        let description: String?
+    }
+
     struct Asset: Decodable {
         let path: String?
     }
@@ -503,24 +508,18 @@ private extension GammaCodeGenerator {
                 )
             }
         }
-        writer.blankLine()
-        writer.line("// MARK: - Theme.ColorAlias")
-        writer.blankLine()
-        try writer.block("public extension Theme.ColorAlias") { writer in
-            for (key, token) in document.colors.sorted(by: { $0.key < $1.key }) {
-                writer.docComment(description: token.description, key: key)
-                writer.line("static let \(try tokenAccessor(key)) = Self(rawValue: \(swiftStringLiteral(key)))")
-            }
-        }
-        writer.blankLine()
-        writer.line("// MARK: - Theme.FontAlias")
-        writer.blankLine()
-        try writer.block("public extension Theme.FontAlias") { writer in
-            for (key, token) in document.fonts.sorted(by: { $0.key < $1.key }) {
-                writer.docComment(description: token.description, key: key)
-                writer.line("static let \(try tokenAccessor(key)) = Self(rawValue: \(swiftStringLiteral(key)))")
-            }
-        }
+        try renderThemeExtensionAccessors(
+            familyType: "Colors",
+            aliasType: "ColorAlias",
+            tokens: document.colors.map { .init(key: $0.key, description: $0.value.description) },
+            writer: &writer
+        )
+        try renderThemeExtensionAccessors(
+            familyType: "Fonts",
+            aliasType: "FontAlias",
+            tokens: document.fonts.map { .init(key: $0.key, description: $0.value.description) },
+            writer: &writer
+        )
 
         for group in groupedUnits.keys.sorted() {
             let typeName = try groupAliasName(group)
@@ -554,28 +553,51 @@ private extension GammaCodeGenerator {
                 writer.line("/// Identifies custom tokens under the \(swiftStringLiteral(family)) theme key.")
                 writer.block("nonisolated enum \(familyType): ThemeExtensionKey") { writer in
                     writer.line("/// The top-level JSON key for this token family.")
-                    writer.line("public static let key = \(swiftStringLiteral(family))")
+                    writer.line("nonisolated public static let key = \(swiftStringLiteral(family))")
                 }
                 writer.blankLine()
                 writer.line("/// A typed alias for tokens in the \(swiftStringLiteral(family)) family.")
                 writer.line("typealias \(aliasType) = ThemeExtensionAlias<\(familyType)>")
             }
-            writer.blankLine()
-            try writer.block(
-                "public extension ThemeExtensionAlias where Extension == Theme.\(familyType)"
-            ) { writer in
-                for (key, token) in document.extensions[family, default: [:]].sorted(by: { $0.key < $1.key }) {
-                    writer.docComment(description: token.description, key: key)
-                    writer.line(
-                        "static var \(try tokenAccessor(key)): Self { Self(rawValue: \(swiftStringLiteral(key))) }"
-                    )
-                }
-            }
+            try renderThemeExtensionAccessors(
+                familyType: familyType,
+                aliasType: aliasType,
+                tokens: document.extensions[family, default: [:]].map {
+                    .init(key: $0.key, description: $0.value.description)
+                },
+                writer: &writer,
+                includeMark: false
+            )
         }
 
         writer.blankLine()
         writer.line("#endif")
         return writer.source
+    }
+
+    static func renderThemeExtensionAccessors(
+        familyType: String,
+        aliasType: String,
+        tokens: [TokenAccessorDeclaration],
+        writer: inout SourceWriter,
+        includeMark: Bool = true
+    ) throws {
+        writer.blankLine()
+        if includeMark {
+            writer.line("// MARK: - Theme.\(aliasType)")
+            writer.blankLine()
+        }
+        try writer.block(
+            "public extension ThemeExtensionAlias where Extension == Theme.\(familyType)"
+        ) { writer in
+            for token in tokens.sorted(by: { $0.key < $1.key }) {
+                writer.docComment(description: token.description, key: token.key)
+                writer.line(
+                    "static var \(try tokenAccessor(token.key)): Self { "
+                        + "Self(rawValue: \(swiftStringLiteral(token.key))) }"
+                )
+            }
+        }
     }
 
     static func validateThemeResourceCollisions(_ urls: [URL]) throws {

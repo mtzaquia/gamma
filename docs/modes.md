@@ -5,15 +5,15 @@ Mode names belong to the design system, not the library. A resolver translates t
 ```swift
 struct AppThemeModeResolver: ThemeModeResolving {
   func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-    ResolvedThemeModes(
-      colors: ThemeColorModeSelection(light: "day", dark: "night"),
-      fonts: context.layoutDirection == .rightToLeft
-        ? ThemeFontModeSelection(primary: "arabic", cascades: ["latin"])
-        : ThemeFontModeSelection(primary: "latin", cascades: ["arabic"]),
-      unit: context.horizontalSizeClass == .regular
-        ? "regular"
-        : "compact"
-    )
+    var modes = ResolvedThemeModes()
+    modes[Theme.Colors.self] = .init(light: "day", dark: "night")
+    modes[Theme.Fonts.self] = context.layoutDirection == .rightToLeft
+      ? .init(primary: "arabic", cascades: ["latin"])
+      : .init(primary: "latin", cascades: ["arabic"])
+    modes[Theme.Units.self] = context.horizontalSizeClass == .regular
+      ? "regular"
+      : "compact"
+    return modes
   }
 }
 ```
@@ -44,13 +44,11 @@ Built-in colors use a light/dark pair so one returned `Color` can follow system 
 
 One resolution returns all token policies together.
 
-| Selection | Meaning |
+| Family selection | Meaning |
 | --- | --- |
-| `colors.light` | Color mode used in light appearance. |
-| `colors.dark` | Color mode used in dark appearance. |
-| `fonts.primary` | Font mode that supplies metrics and the primary face. |
-| `fonts.cascades` | Ordered fallback faces appended to the font descriptor. |
-| `unit` | Unit mode used for spacing, sizing, and radius aliases. |
+| `modes[Theme.Colors.self]` | Light and dark color mode names. |
+| `modes[Theme.Fonts.self]` | Primary font mode and ordered cascade modes. |
+| `modes[Theme.Units.self]` | Unit mode used for spacing, sizing, and radius aliases. |
 
 Every selected mode must exist on every token of that kind. Invalid selections produce a consolidated diagnostic instead of changing policy per token. Consumer-defined families add typed selections to the same result; see [Theme extensions](theme-extensions.md#select-a-mode).
 
@@ -81,14 +79,14 @@ struct AppThemeModeResolver: ThemeModeResolving {
   var cacheIdentity: AnyHashable { campaign }
 
   func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-    ResolvedThemeModes(
-      colors: ThemeColorModeSelection(
-        light: "\(campaign)-light",
-        dark: "\(campaign)-dark"
-      ),
-      fonts: ThemeFontModeSelection(primary: "default"),
-      unit: "default"
+    var modes = ResolvedThemeModes()
+    modes[Theme.Colors.self] = ThemeColorModeSelection(
+      light: "\(campaign)-light",
+      dark: "\(campaign)-dark"
     )
+    modes[Theme.Fonts.self] = ThemeFontModeSelection(primary: "default")
+    modes[Theme.Units.self] = "default"
+    return modes
   }
 }
 ```

@@ -1,6 +1,6 @@
 # Theme extensions
 
-Theme extensions add app-owned token families to the same JSON, code-generation, mode-resolution, and `ThemeProxy` workflow as Gamma's built-in tokens. Gamma owns the shared contract; the app defines each mode's payload and rendering type.
+Every mode-resolved token family uses `ThemeExtension`. Gamma supplies `Theme.Colors`, `Theme.Fonts`, and `Theme.Units`; theme extensions add app-owned families to the same JSON, code-generation, resolution, and `ThemeProxy` workflow. Gamma owns the shared contract while the app defines each custom mode payload and rendering type.
 
 ## Define the JSON family
 
@@ -29,7 +29,7 @@ For every non-empty custom family in a build input, Gamma generates a family mar
 ```swift
 public extension Theme {
   nonisolated enum Gradients: ThemeExtensionKey {
-    public static let key = "gradients"
+    nonisolated public static let key = "gradients"
   }
 
   typealias GradientsAlias = ThemeExtensionAlias<Gradients>
@@ -70,16 +70,15 @@ Generated markers are public, so a public conformance requires a public token ty
 
 ## Select a mode
 
-`ResolvedThemeModes` stores one arbitrary mode name per typed family. The resolver may use any `ThemeModeContext` input or choose a fixed value:
+`ResolvedThemeModes` is an empty typed collection. Populate every built-in and custom family your theme uses. Custom families select one arbitrary mode name by default; that name may come from any `ThemeModeContext` input or resolver state.
 
 ```swift
 struct AppThemeModeResolver: ThemeModeResolving {
   func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-    var modes = ResolvedThemeModes(
-      colors: .init(light: "light", dark: "dark"),
-      fonts: .init(primary: "default"),
-      unit: "default"
-    )
+    var modes = ResolvedThemeModes()
+    modes[Theme.Colors.self] = .init(light: "light", dark: "dark")
+    modes[Theme.Fonts.self] = .init(primary: "default")
+    modes[Theme.Units.self] = "default"
     modes[Theme.Gradients.self] = context.colorScheme == .dark
       ? "night"
       : "day"
@@ -88,7 +87,7 @@ struct AppThemeModeResolver: ThemeModeResolving {
 }
 ```
 
-The type key keeps unrelated families distinct even when they use the same mode names. A family that does not care about appearance could instead select from size class, layout direction, resolver state, or a fixed value such as `modes[Theme.Gradients.self] = "default"`.
+The family type keeps unrelated selections distinct even when they use the same mode names. A family that does not care about appearance can instead use size class, layout direction, resolver state, or a fixed value such as `modes[Theme.Gradients.self] = "default"`.
 
 ## Register the family
 

@@ -30,11 +30,10 @@ struct ThemeValidationTests {
     @Test("Valid themes pass schema and selected-mode validation")
     func validThemePassesValidation() throws {
         let theme = try decode(Self.validThemeJSON)
-        let modes = ResolvedThemeModes(
-            colors: .init(light: "light", dark: "dark"),
-            fonts: .init(primary: "default"),
-            unit: "default"
-        )
+        var modes = ResolvedThemeModes()
+        modes[Theme.Colors.self] = .init(light: "light", dark: "dark")
+        modes[Theme.Fonts.self] = .init(primary: "default")
+        modes[Theme.Units.self] = "default"
 
         #expect(theme.validationIssues(resolvedModes: modes).isEmpty)
     }
@@ -127,11 +126,10 @@ struct ThemeValidationTests {
     @Test("Resolver-selected modes are validated before token resolution")
     func selectedModesAreValidated() throws {
         let theme = try decode(Self.validThemeJSON)
-        let modes = ResolvedThemeModes(
-            colors: .init(light: "day", dark: "night"),
-            fonts: .init(primary: "primary", cascades: ["fallback"]),
-            unit: "tablet"
-        )
+        var modes = ResolvedThemeModes()
+        modes[Theme.Colors.self] = .init(light: "day", dark: "night")
+        modes[Theme.Fonts.self] = .init(primary: "primary", cascades: ["fallback"])
+        modes[Theme.Units.self] = "tablet"
 
         let paths = Set(theme.validationIssues(resolvedModes: modes).map(\.path))
 
@@ -148,11 +146,10 @@ struct ThemeValidationTests {
         let theme = try decode(
             Self.validThemeJSON.replacingOccurrences(of: "Helvetica", with: unavailableName)
         )
-        let modes = ResolvedThemeModes(
-            colors: .init(light: "light", dark: "dark"),
-            fonts: .init(primary: "default"),
-            unit: "default"
-        )
+        var modes = ResolvedThemeModes()
+        modes[Theme.Colors.self] = .init(light: "light", dark: "dark")
+        modes[Theme.Fonts.self] = .init(primary: "default")
+        modes[Theme.Units.self] = "default"
 
         let issues = theme.validationIssues(resolvedModes: modes)
             .filter { $0.path.hasSuffix(".fontName") }

@@ -38,9 +38,12 @@ struct ThemeModeResolverTests {
             )
         )
 
-        #expect(modes.colors == ThemeColorModeSelection(light: "light", dark: "dark"))
-        #expect(modes.fonts == ThemeFontModeSelection(primary: "default"))
-        #expect(modes.unit == "default")
+        #expect(
+            modes[Theme.Colors.self]
+                == ThemeColorModeSelection(light: "light", dark: "dark")
+        )
+        #expect(modes[Theme.Fonts.self] == ThemeFontModeSelection(primary: "default"))
+        #expect(modes[Theme.Units.self] == "default")
     }
 
     @Test("Default font and unit modes do not vary with resolver context")
@@ -52,8 +55,8 @@ struct ThemeModeResolverTests {
             )
         )
 
-        #expect(modes.fonts == ThemeFontModeSelection(primary: "default"))
-        #expect(modes.unit == "default")
+        #expect(modes[Theme.Fonts.self] == ThemeFontModeSelection(primary: "default"))
+        #expect(modes[Theme.Units.self] == "default")
     }
 
     @Test("Custom resolver can use horizontal size class")
@@ -73,8 +76,8 @@ struct ThemeModeResolverTests {
             )
         )
 
-        #expect(compactModes.unit == "compact")
-        #expect(regularModes.unit == "regular")
+        #expect(compactModes[Theme.Units.self] == "compact")
+        #expect(regularModes[Theme.Units.self] == "regular")
     }
 
     @Test("Custom family modes are selected dynamically by typed family")
@@ -246,21 +249,20 @@ private struct ResponsiveModeResolver: ThemeModeResolving {
             unitMode = fallbackUnitMode
         }
 
-        return ResolvedThemeModes(
-            colors: ThemeColorModeSelection(light: "day", dark: "night"),
-            fonts: ThemeFontModeSelection(primary: "primary"),
-            unit: unitMode
-        )
+        var modes = ResolvedThemeModes()
+        modes[Theme.Colors.self] = ThemeColorModeSelection(light: "day", dark: "night")
+        modes[Theme.Fonts.self] = ThemeFontModeSelection(primary: "primary")
+        modes[Theme.Units.self] = unitMode
+        return modes
     }
 }
 
 private struct ExtensionModeResolver: ThemeModeResolving {
     func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-        var modes = ResolvedThemeModes(
-            colors: .init(light: "light", dark: "dark"),
-            fonts: .init(primary: "default"),
-            unit: "default"
-        )
+        var modes = ResolvedThemeModes()
+        modes[Theme.Colors.self] = .init(light: "light", dark: "dark")
+        modes[Theme.Fonts.self] = .init(primary: "default")
+        modes[Theme.Units.self] = "default"
         modes[Theme.TestGradients.self] = context.colorScheme == .dark ? "night" : "day"
         modes[TestMotion.self] = context.horizontalSizeClass == .compact
             ? "reduced"
@@ -269,8 +271,16 @@ private struct ExtensionModeResolver: ThemeModeResolving {
     }
 }
 
-nonisolated private enum TestMotion: ThemeExtensionKey {
+nonisolated private enum TestMotion: ThemeExtension {
+    typealias Token = TestMotionToken
+
     static let key = "motion"
+}
+
+nonisolated private struct TestMotionToken: ThemeExtensionToken {
+    let name: String
+    let group: String
+    let modes: [String: String]
 }
 
 private struct SpacingAlias: UnitAlias {

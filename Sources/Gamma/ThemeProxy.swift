@@ -98,7 +98,8 @@ public extension ThemeProxy {
     ///   selection, or selected mode is unavailable or invalid.
     func resolve<Extension: ThemeExtension>(
         _ alias: ThemeExtensionAlias<Extension>
-    ) -> Extension.Token.Mode? {
+    ) -> Extension.Token.Mode?
+    where Extension.Selection == String {
         let snapshot = currentSnapshot
 
         guard let selectedMode = snapshot.modes[Extension.self], !selectedMode.isEmpty else {
@@ -149,8 +150,17 @@ public extension ThemeProxy {
     /// Resolves a color alias to a `Color` that adapts to light and dark mode.
     func color(_ alias: Theme.ColorAlias) -> Color {
         let snapshot = currentSnapshot
-        let selectedModes = snapshot.modes.colors
         let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: alias.rawValue)
+
+        guard let selectedModes = snapshot.modes[Theme.Colors.self] else {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Theme.Colors.key,
+                alias: alias.rawValue,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the resolver did not select color modes"
+            )
+            return fallbackColor(light: .black, dark: .white, cacheKey: cacheKey)
+        }
 
         if let color = ThemeProxyCache.colorCache[cacheKey] {
             return color
@@ -158,7 +168,7 @@ public extension ThemeProxy {
 
         guard let rawColor = snapshot.theme.colors[alias.rawValue] else {
             ThemeDiagnostics.resolutionFailure(
-                kind: "color",
+                kind: Theme.Colors.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "the token does not exist in theme \(snapshot.theme.id)"
@@ -171,7 +181,7 @@ public extension ThemeProxy {
 
         if lightMode == nil {
             ThemeDiagnostics.resolutionFailure(
-                kind: "color",
+                kind: Theme.Colors.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "mode \(selectedModes.light) is missing"
@@ -179,7 +189,7 @@ public extension ThemeProxy {
         }
         if darkMode == nil {
             ThemeDiagnostics.resolutionFailure(
-                kind: "color",
+                kind: Theme.Colors.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "mode \(selectedModes.dark) is missing"
@@ -195,8 +205,17 @@ public extension ThemeProxy {
     /// Pass the result to Gamma's `View.font(_:)` modifier.
     func font(_ alias: Theme.FontAlias) -> ThemeFont {
         let snapshot = currentSnapshot
-        let selectedModes = snapshot.modes.fonts
         let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: alias.rawValue)
+
+        guard let selectedModes = snapshot.modes[Theme.Fonts.self] else {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Theme.Fonts.key,
+                alias: alias.rawValue,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the resolver did not select font modes"
+            )
+            return .fallback
+        }
 
         if let cached = ThemeProxyCache.fontCache[cacheKey] {
             return cached
@@ -204,7 +223,7 @@ public extension ThemeProxy {
 
         guard let rawFont = snapshot.theme.fonts[alias.rawValue] else {
             ThemeDiagnostics.resolutionFailure(
-                kind: "font",
+                kind: Theme.Fonts.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "the token does not exist in theme \(snapshot.theme.id)"
@@ -214,7 +233,7 @@ public extension ThemeProxy {
 
         guard let primaryMode = rawFont.modes[selectedModes.primary] else {
             ThemeDiagnostics.resolutionFailure(
-                kind: "font",
+                kind: Theme.Fonts.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "primary mode \(selectedModes.primary) is missing"
@@ -225,7 +244,7 @@ public extension ThemeProxy {
         let missingCascades = selectedModes.cascades.filter { rawFont.modes[$0] == nil }
         if !missingCascades.isEmpty {
             ThemeDiagnostics.resolutionFailure(
-                kind: "font",
+                kind: Theme.Fonts.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "cascade modes \(missingCascades.joined(separator: ", ")) are missing"
@@ -253,8 +272,17 @@ public extension ThemeProxy {
     /// Resolves a unit alias to a `CGFloat` for this platform.
     func unit(_ alias: some UnitAlias) -> CGFloat {
         let snapshot = currentSnapshot
-        let selectedMode = snapshot.modes.unit
         let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: alias.rawValue)
+
+        guard let selectedMode = snapshot.modes[Theme.Units.self] else {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Theme.Units.key,
+                alias: alias.rawValue,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the resolver did not select a unit mode"
+            )
+            return 0
+        }
 
         if let cached = ThemeProxyCache.unitCache[cacheKey] {
             return cached
@@ -262,7 +290,7 @@ public extension ThemeProxy {
 
         guard let rawUnit = snapshot.theme.units[alias.rawValue] else {
             ThemeDiagnostics.resolutionFailure(
-                kind: "unit",
+                kind: Theme.Units.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "the token does not exist in theme \(snapshot.theme.id)"
@@ -272,7 +300,7 @@ public extension ThemeProxy {
 
         guard let result = rawUnit.modes[selectedMode] else {
             ThemeDiagnostics.resolutionFailure(
-                kind: "unit",
+                kind: Theme.Units.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "mode \(selectedMode) is missing"

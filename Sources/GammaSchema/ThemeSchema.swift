@@ -235,10 +235,13 @@ package struct RawDefaults: Decodable, Hashable, Sendable {
 }
 
 public struct RawColor: Decodable, Hashable, Sendable {
-    package let name: String
-    package let group: String
+    /// The display name supplied by the theme producer.
+    public let name: String
+    /// The group used to organize related tokens.
+    public let group: String
     package let description: String
-    package var modes: [String: Mode]
+    /// The color values keyed by mode name.
+    public package(set) var modes: [String: Mode]
 
     public struct Mode: Decodable, Hashable, Sendable {
         public let hex: String
@@ -277,10 +280,13 @@ public struct RawColor: Decodable, Hashable, Sendable {
 }
 
 public struct RawFont: Decodable, Hashable, Sendable {
-    package let name: String
-    package let group: String
+    /// The display name supplied by the theme producer.
+    public let name: String
+    /// The group used to organize related tokens.
+    public let group: String
     package let description: String
-    package var modes: [String: Mode]
+    /// The font values keyed by mode name.
+    public package(set) var modes: [String: Mode]
 
     package init(name: String, group: String, description: String, modes: [String: Mode]) {
         self.name = name
@@ -344,10 +350,13 @@ public struct RawFont: Decodable, Hashable, Sendable {
 public struct RawUnit: Decodable, Hashable, Sendable {
     public typealias Mode = CGFloat
 
-    package let name: String
-    package let group: String
+    /// The display name supplied by the theme producer.
+    public let name: String
+    /// The group used to organize related tokens.
+    public let group: String
     package let description: String
-    package var modes: [String: Mode]
+    /// The numeric values keyed by mode name.
+    public package(set) var modes: [String: Mode]
 
 }
 

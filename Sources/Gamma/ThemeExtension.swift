@@ -23,9 +23,9 @@
 import GammaSchema
 import Foundation
 
-/// A token stored under a consumer-defined top-level theme key.
+/// The shared structure of a token in a mode-resolved theme family.
 ///
-/// Conforming types define the metadata shared by every extension token and
+/// Conforming types define the metadata shared by every family token and
 /// the concrete value stored under each mode name. In a target whose default
 /// isolation is `MainActor`, declare the token and mode types `nonisolated` so
 /// their synthesized `Decodable` conformances can run during theme decoding.
@@ -43,19 +43,62 @@ nonisolated public protocol ThemeExtensionToken: Decodable {
     var modes: [String: Mode] { get }
 }
 
-/// Identifies one consumer-defined top-level token family in a theme document.
+/// Identifies a top-level token family before its payload type is known.
+///
+/// Code generation uses this lightweight marker so it can emit typed aliases;
+/// a ``ThemeExtension`` conformance then supplies the concrete token payload.
 nonisolated public protocol ThemeExtensionKey {
     /// The top-level JSON key whose value is the family's token dictionary.
     static var key: String { get }
 }
 
-/// Connects a theme extension family to its consumer-defined token payload.
+/// Connects a token family to its concrete payload and resolver selection.
 nonisolated public protocol ThemeExtension: ThemeExtensionKey {
     /// The concrete token decoded for this family.
     associatedtype Token: ThemeExtensionToken
+
+    /// The resolver value for this family. Custom families normally use the
+    /// default `String`; Gamma's built-in families may use richer policies.
+    associatedtype Selection: Hashable & Sendable = String
 }
 
-/// A typed alias for one token in a consumer-defined theme extension.
+nonisolated extension RawColor: ThemeExtensionToken {}
+nonisolated extension RawFont: ThemeExtensionToken {}
+nonisolated extension RawUnit: ThemeExtensionToken {}
+
+public extension Theme {
+    /// The built-in color token family.
+    nonisolated enum Colors: ThemeExtension {
+        /// The top-level JSON key for color tokens.
+        nonisolated public static let key = "colors"
+        /// The decoded token type for this family.
+        public typealias Token = RawColor
+        /// The light and dark mode-name pair selected by the resolver.
+        public typealias Selection = ThemeColorModeSelection
+    }
+
+    /// The built-in font token family.
+    nonisolated enum Fonts: ThemeExtension {
+        /// The top-level JSON key for font tokens.
+        nonisolated public static let key = "fonts"
+        /// The decoded token type for this family.
+        public typealias Token = RawFont
+        /// The primary and cascade mode names selected by the resolver.
+        public typealias Selection = ThemeFontModeSelection
+    }
+
+    /// The built-in numeric unit token family.
+    nonisolated enum Units: ThemeExtension {
+        /// The top-level JSON key for numeric unit tokens.
+        nonisolated public static let key = "units"
+        /// The decoded token type for this family.
+        public typealias Token = RawUnit
+        /// The mode name selected by the resolver.
+        public typealias Selection = String
+    }
+}
+
+/// A typed alias for one token in a built-in or consumer-defined family.
 nonisolated public struct ThemeExtensionAlias<Extension: ThemeExtensionKey>: RawRepresentable, Hashable, Sendable {
     /// The token key as it appears in the extension's JSON dictionary.
     public var rawValue: String
@@ -80,7 +123,8 @@ public struct ThemeExtensionRegistration {
     /// Creates a registration for a theme extension family.
     ///
     /// - Parameter family: The family to decode and validate when its theme is installed.
-    public init<Extension: ThemeExtension>(_ family: Extension.Type) {
+    public init<Extension: ThemeExtension>(_ family: Extension.Type)
+    where Extension.Selection == String {
         identifier = ObjectIdentifier(Extension.self)
         validationImplementation = { theme, resolvedModes in
             let structuralIssues = theme.extensionValidationIssues(forKey: Extension.key)
@@ -91,13 +135,13 @@ public struct ThemeExtensionRegistration {
                 guard let resolvedModes else { return [] }
                 guard let selectedMode = resolvedModes[Extension.self] else {
                     return [ThemeValidationIssue(
-                        path: "resolver.extensions.\(Extension.key)",
+                        path: "resolver.\(Extension.key)",
                         message: "mode selection is required for the registered extension"
                     )]
                 }
                 guard !selectedMode.isEmpty else {
                     return [ThemeValidationIssue(
-                        path: "resolver.extensions.\(Extension.key)",
+                        path: "resolver.\(Extension.key)",
                         message: "mode name must not be empty"
                     )]
                 }
@@ -191,7 +235,8 @@ enum ThemeExtensionTokenCache {
     static func tokens<Extension: ThemeExtension>(
         for _: Extension.Type,
         in theme: RawTheme
-    ) throws -> [String: Extension.Token]? {
+    ) throws -> [String: Extension.Token]?
+    where Extension.Selection == String {
         let key = ThemeExtensionTokenCacheKey(
             themeInstanceID: theme.instanceID,
             extensionType: ObjectIdentifier(Extension.self)

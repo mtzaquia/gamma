@@ -129,11 +129,10 @@ struct ThemeExtensionTests {
     @Test("Registered extensions validate the resolver-selected mode")
     func registeredExtensionModeIsValidated() throws {
         let theme = try decode(Self.themeJSON)
-        var missingSelection = ResolvedThemeModes(
-            colors: .init(light: "light", dark: "dark"),
-            fonts: .init(primary: "default"),
-            unit: "default"
-        )
+        var missingSelection = ResolvedThemeModes()
+        missingSelection[Theme.Colors.self] = .init(light: "light", dark: "dark")
+        missingSelection[Theme.Fonts.self] = .init(primary: "default")
+        missingSelection[Theme.Units.self] = "default"
         let registration = ThemeExtensionRegistration(Theme.TestGradients.self)
 
         let selectionIssues = theme.validationIssues(
@@ -141,7 +140,7 @@ struct ThemeExtensionTests {
             extensions: [registration]
         )
         #expect(selectionIssues.contains {
-            $0.path == "resolver.extensions.gradients"
+            $0.path == "resolver.gradients"
         })
 
         missingSelection[Theme.TestGradients.self] = "highContrast"
@@ -247,11 +246,10 @@ private struct ExtensionProbe: View {
 
 private struct TestExtensionModeResolver: ThemeModeResolving {
     func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-        var modes = ResolvedThemeModes(
-            colors: .init(light: "light", dark: "dark"),
-            fonts: .init(primary: "default"),
-            unit: "default"
-        )
+        var modes = ResolvedThemeModes()
+        modes[Theme.Colors.self] = .init(light: "light", dark: "dark")
+        modes[Theme.Fonts.self] = .init(primary: "default")
+        modes[Theme.Units.self] = "default"
         modes[Theme.TestGradients.self] = context.colorScheme == .dark ? "dark" : "light"
         return modes
     }

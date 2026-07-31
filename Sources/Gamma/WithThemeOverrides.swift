@@ -60,6 +60,7 @@ public struct WithThemeOverrides<Content: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.themeExtensions) private var themeExtensions
     @Environment(\.themeModeResolver) private var modeResolver
 
     let overrides: RawThemeOverrides
@@ -80,6 +81,7 @@ public struct WithThemeOverrides<Content: View>: View {
                 ThemeDiagnostics.validate(
                     theme,
                     resolvedModes: resolvedModes,
+                    extensions: themeExtensions,
                     additionalIssues: issues
                 )
                 ThemeDiagnostics.overridesApplied(theme, overrides: overrides)

@@ -41,49 +41,73 @@ extension RawTheme {
             return issues.sortedForDiagnostics()
         }
 
-        if resolvedModes.colors.light.isEmpty {
-            issues.append(.init(path: "resolver.colors.light", message: "mode name must not be empty"))
-        }
-        if resolvedModes.colors.dark.isEmpty {
-            issues.append(.init(path: "resolver.colors.dark", message: "mode name must not be empty"))
-        }
-        if resolvedModes.fonts.primary.isEmpty {
-            issues.append(.init(path: "resolver.fonts.primary", message: "mode name must not be empty"))
-        }
-        if resolvedModes.unit.isEmpty {
-            issues.append(.init(path: "resolver.unit", message: "mode name must not be empty"))
+        let colorSelection = resolvedModes[Theme.Colors.self]
+        let fontSelection = resolvedModes[Theme.Fonts.self]
+        let unitSelection = resolvedModes[Theme.Units.self]
+
+        if let colorSelection {
+            if colorSelection.light.isEmpty {
+                issues.append(.init(path: "resolver.colors.light", message: "mode name must not be empty"))
+            }
+            if colorSelection.dark.isEmpty {
+                issues.append(.init(path: "resolver.colors.dark", message: "mode name must not be empty"))
+            }
+        } else {
+            issues.append(.init(path: "resolver.colors", message: "mode selection is required"))
         }
 
-        for (token, color) in colors {
-            for mode in Set([resolvedModes.colors.light, resolvedModes.colors.dark]) where !mode.isEmpty {
-                if color.modes[mode] == nil {
-                    issues.append(.init(path: "colors.\(token).modes.\(mode)", message: "mode selected by the resolver is missing"))
+        if let fontSelection {
+            if fontSelection.primary.isEmpty {
+                issues.append(.init(path: "resolver.fonts.primary", message: "mode name must not be empty"))
+            }
+        } else {
+            issues.append(.init(path: "resolver.fonts", message: "mode selection is required"))
+        }
+
+        if let unitSelection {
+            if unitSelection.isEmpty {
+                issues.append(.init(path: "resolver.units", message: "mode name must not be empty"))
+            }
+        } else {
+            issues.append(.init(path: "resolver.units", message: "mode selection is required"))
+        }
+
+        if let colorSelection {
+            for (token, color) in colors {
+                for mode in Set([colorSelection.light, colorSelection.dark]) where !mode.isEmpty {
+                    if color.modes[mode] == nil {
+                        issues.append(.init(path: "colors.\(token).modes.\(mode)", message: "mode selected by the resolver is missing"))
+                    }
                 }
             }
         }
 
-        for (token, font) in fonts {
-            let modes = [resolvedModes.fonts.primary] + resolvedModes.fonts.cascades
-            for mode in Set(modes) where !mode.isEmpty {
-                guard let value = font.modes[mode] else {
-                    issues.append(.init(path: "fonts.\(token).modes.\(mode)", message: "mode selected by the resolver is missing"))
-                    continue
-                }
+        if let fontSelection {
+            for (token, font) in fonts {
+                let modes = [fontSelection.primary] + fontSelection.cascades
+                for mode in Set(modes) where !mode.isEmpty {
+                    guard let value = font.modes[mode] else {
+                        issues.append(.init(path: "fonts.\(token).modes.\(mode)", message: "mode selected by the resolver is missing"))
+                        continue
+                    }
 
-                if UIFont(name: value.fontName, size: value.fontSize) == nil {
-                    issues.append(.init(
-                        path: "fonts.\(token).modes.\(mode).fontName",
-                        message: "PostScript name \(value.fontName.inspecting) is not available to UIKit"
-                    ))
+                    if UIFont(name: value.fontName, size: value.fontSize) == nil {
+                        issues.append(.init(
+                            path: "fonts.\(token).modes.\(mode).fontName",
+                            message: "PostScript name \(value.fontName.inspecting) is not available to UIKit"
+                        ))
+                    }
                 }
             }
         }
 
-        for (token, unit) in units where !resolvedModes.unit.isEmpty && unit.modes[resolvedModes.unit] == nil {
-            issues.append(.init(
-                path: "units.\(token).modes.\(resolvedModes.unit)",
-                message: "mode selected by the resolver is missing"
-            ))
+        if let unitSelection, !unitSelection.isEmpty {
+            for (token, unit) in units where unit.modes[unitSelection] == nil {
+                issues.append(.init(
+                    path: "units.\(token).modes.\(unitSelection)",
+                    message: "mode selected by the resolver is missing"
+                ))
+            }
         }
 
         return issues.sortedForDiagnostics()
@@ -178,7 +202,7 @@ enum ThemeDiagnostics {
             .map { "\($0.identifier)" }
             .sorted()
             .joined(separator: ",")
-        return "validation|\(theme.instanceID)|\(theme.overrideHash)|\(modes)|\(extensionIdentity)"
+        return "validation|\(theme.instanceID)|\(theme.overrideHash)|\(modes.hashValue)|\(extensionIdentity)"
     }
 
     private static func markReported(_ key: String) -> Bool {

@@ -247,13 +247,15 @@ private struct CountingModeResolver: ThemeModeResolving {
 
     func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
         counter.increment()
-        return ResolvedThemeModes(
-            colors: .init(light: "day", dark: "night"),
-            fonts: context.layoutDirection == .rightToLeft
-                ? .init(primary: "arabic", cascades: ["latin"])
-                : .init(primary: "latin", cascades: ["arabic"]),
-            unit: context.horizontalSizeClass == .regular ? "regular" : "compact"
-        )
+        var modes = ResolvedThemeModes()
+        modes[Theme.Colors.self] = .init(light: "day", dark: "night")
+        modes[Theme.Fonts.self] = context.layoutDirection == .rightToLeft
+            ? .init(primary: "arabic", cascades: ["latin"])
+            : .init(primary: "latin", cascades: ["arabic"])
+        modes[Theme.Units.self] = context.horizontalSizeClass == .regular
+            ? "regular"
+            : "compact"
+        return modes
     }
 }
 
