@@ -151,7 +151,7 @@ enum ThemeDiagnostics {
         )
     }
 
-    static func overridesApplied(_ theme: RawTheme, overrides: RawThemeOverrides) {
+    static func overridesApplied(_ theme: RawTheme, overrides: ThemeOverrides) {
         let key = "overrides|\(theme.instanceID)|\(theme.overrideHash)"
         guard markReported(key) else { return }
         gammaLog.gammaDebug(.overridesApplied(

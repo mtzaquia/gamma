@@ -45,9 +45,9 @@ nonisolated public struct GradientToken: ThemeExtensionToken {
 }
 
 extension SampleTheme {
-    static let gradientOverrides: RawThemeOverrides = {
+    static let gradientOverrides: ThemeOverrides = {
         do {
-            return RawThemeOverrides(tokens: [
+            return ThemeOverrides(tokens: [
                 try ThemeTokenOverride(
                     Theme.Gradients.BrandAlias.brandHero,
                     modes: [

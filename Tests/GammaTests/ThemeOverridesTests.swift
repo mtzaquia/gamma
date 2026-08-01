@@ -26,16 +26,16 @@ import Testing
 @testable import Gamma
 
 @Suite("Raw theme overrides")
-struct RawThemeOverridesTests {
+struct ThemeOverridesTests {
     @Test("Nested identity includes its parent override")
     func nestedIdentityIncludesParentOverride() throws {
-        let firstParent = RawThemeOverrides(
+        let firstParent = ThemeOverrides(
             tokens: [try ThemeTokenOverride(.spacingDefault, modes: ["default": 12])]
         )
-        let secondParent = RawThemeOverrides(
+        let secondParent = ThemeOverrides(
             tokens: [try ThemeTokenOverride(.spacingDefault, modes: ["default": 24])]
         )
-        let inner = RawThemeOverrides(
+        let inner = ThemeOverrides(
             tokens: [try ThemeTokenOverride(
                 .surfaceBackground,
                 modes: ["light": .init(hex: "#FFFFFF", alpha: 1)]
@@ -52,10 +52,10 @@ struct RawThemeOverridesTests {
 
     @Test("Override identity is stable for the same scope chain")
     func overrideIdentityIsStableForSameScopeChain() throws {
-        let parent = RawThemeOverrides(
+        let parent = ThemeOverrides(
             tokens: [try ThemeTokenOverride(.spacingDefault, modes: ["default": 12])]
         )
-        let inner = RawThemeOverrides(
+        let inner = ThemeOverrides(
             tokens: [try ThemeTokenOverride(
                 .surfaceBackground,
                 modes: ["light": .init(hex: "#FFFFFF", alpha: 1)]
@@ -70,10 +70,10 @@ struct RawThemeOverridesTests {
 
     @Test("Override identity preserves scope order")
     func overrideIdentityPreservesScopeOrder() throws {
-        let outer = RawThemeOverrides(
+        let outer = ThemeOverrides(
             tokens: [try ThemeTokenOverride(.spacingDefault, modes: ["default": 12])]
         )
-        let inner = RawThemeOverrides(
+        let inner = ThemeOverrides(
             tokens: [try ThemeTokenOverride(
                 .surfaceBackground,
                 modes: ["light": .init(hex: "#FFFFFF", alpha: 1)]
@@ -88,7 +88,7 @@ struct RawThemeOverridesTests {
 
     @Test("Programmatic overrides retain the alias family and token key")
     func programmaticOverridesAreTyped() throws {
-        let overrides = RawThemeOverrides(tokens: [
+        let overrides = ThemeOverrides(tokens: [
             try ThemeTokenOverride(.surfaceBackground, modes: [
                 "light": .init(hex: "#FFFFFF", alpha: 1),
             ]),
@@ -116,7 +116,7 @@ struct RawThemeOverridesTests {
     @Test("Decoded overrides preserve consumer-defined family keys")
     func decodedOverridesPreserveExtensionFamilies() throws {
         let overrides = try JSONDecoder().decode(
-            RawThemeOverrides.self,
+            ThemeOverrides.self,
             from: Data(#"{"gradients":{"brand/hero":{"day":{"stops":["brand/start","brand/end"]}}}}"#.utf8)
         )
 

@@ -3,7 +3,7 @@
 Use `WithThemeOverrides` to replace selected token modes inside one view subtree. The installed base theme and resolver stay the same outside that scope. For a theme whose resolver selects `day` and `night` colors:
 
 ```swift
-let campaignOverrides = RawThemeOverrides(
+let campaignOverrides = ThemeOverrides(
   tokens: [
     try ThemeTokenOverride(
       Theme.Colors.BrandAlias.brandAccent,
@@ -60,7 +60,7 @@ The same scope can replace colors, fonts, units, and registered extension famili
 
 ```swift
 let overrides = try JSONDecoder().decode(
-  RawThemeOverrides.self,
+  ThemeOverrides.self,
   from: overrideData
 )
 
@@ -76,7 +76,7 @@ Decoded override documents may include any built-in or registered extension fami
 Custom mode payloads remain app-owned. When the mode is `Encodable`, the same typed entry API checks both its alias and replacement value:
 
 ```swift
-let gradientOverrides = RawThemeOverrides(
+let gradientOverrides = ThemeOverrides(
   tokens: [
     try ThemeTokenOverride(
       Theme.Gradients.BrandAlias.brandHero,
@@ -122,7 +122,7 @@ This makes an override self-contained and prevents an old base value from unexpe
 
 Overrides must reference families and tokens that already exist in the base theme. They cannot introduce new aliases because generated source and component code would not know those aliases.
 
-Replacing a `RawThemeOverrides` value with newly decoded server data updates the transformed environment immediately. The app remains responsible for fetching that data and publishing the replacement value.
+Replacing a `ThemeOverrides` value with newly decoded server data updates the transformed environment immediately. The app remains responsible for fetching that data and publishing the replacement value.
 
 ## Validation and caching
 

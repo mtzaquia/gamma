@@ -70,7 +70,7 @@ nonisolated public struct ThemeTokenOverride: Hashable, Sendable {
 /// `units`, or a registered extension key. Token keys remain JSON strings on
 /// the wire. Use ``ThemeTokenOverride`` when constructing overrides in Swift so
 /// each key and mode payload are checked against the alias family.
-nonisolated public struct RawThemeOverrides: Decodable, Hashable, Sendable {
+nonisolated public struct ThemeOverrides: Decodable, Hashable, Sendable {
     let families: [String: [String: ThemeJSONValue]]
 
     /// Creates overrides from type-safe token replacements.
@@ -184,7 +184,7 @@ public struct WithThemeOverrides<Content: View>: View {
     @Environment(\.themeExtensions) private var themeExtensions
     @Environment(\.themeModeResolver) private var modeResolver
 
-    let overrides: RawThemeOverrides
+    let overrides: ThemeOverrides
     let content: Content
 
     public var body: some View {
@@ -211,14 +211,14 @@ public struct WithThemeOverrides<Content: View>: View {
     }
 
     /// Creates the view with the given token overrides applied to all content.
-    public init(overrides: RawThemeOverrides, @ViewBuilder content: () -> Content) {
+    public init(overrides: ThemeOverrides, @ViewBuilder content: () -> Content) {
         self.overrides = overrides
         self.content = content()
     }
 }
 
 extension RawTheme {
-    mutating func apply(_ overrides: RawThemeOverrides) -> [ThemeValidationIssue] {
+    mutating func apply(_ overrides: ThemeOverrides) -> [ThemeValidationIssue] {
         var issues: [ThemeValidationIssue] = []
 
         for (token, payload) in overrides.tokens(for: Theme.Colors.key) {

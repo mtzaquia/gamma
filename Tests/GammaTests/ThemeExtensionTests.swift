@@ -170,7 +170,7 @@ struct ThemeExtensionTests {
         )
         #expect(original?["brand/hero"]?.modes["light"]?.stops == ["color/start", "color/end"])
 
-        let overrides = RawThemeOverrides(tokens: [
+        let overrides = ThemeOverrides(tokens: [
             try ThemeTokenOverride(
                 Theme.TestGradients.BrandAlias.brandHero,
                 modes: [
