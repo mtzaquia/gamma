@@ -20,13 +20,13 @@ Describe colors, typography, and units in one JSON theme. Decide how its modes m
 @ThemeReader private var theme
 
 var body: some View {
-  VStack(alignment: .leading, spacing: theme.unit(.spaceMedium)) {
+  VStack(alignment: .leading, spacing: theme.unit(.spacingMedium)) {
     DSText("A coherent visual voice")
-      .font(theme.font(.fontDisplay))
+      .font(theme.font(.typographyDisplay))
 
     DSText("Resolved from the active theme.")
-      .font(theme.font(.fontBody))
-      .foregroundStyle(theme.color(.colorTextSecondary))
+      .font(theme.font(.typographyBody))
+      .foregroundStyle(theme.color(.textSecondary))
   }
 }
 ```
@@ -72,9 +72,9 @@ struct ContentView: View {
 
   var body: some View {
     DSText("Hello, design system")
-      .font(theme.font(.fontBody))
-      .foregroundStyle(theme.color(.colorTextPrimary))
-      .padding(theme.unit(.spaceMedium))
+      .font(theme.font(.typographyBody))
+      .foregroundStyle(theme.color(.textPrimary))
+      .padding(theme.unit(.spacingMedium))
   }
 }
 ```

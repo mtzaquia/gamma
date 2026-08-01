@@ -33,7 +33,7 @@ struct ShowcaseView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: theme.unit(.spaceMedium)) {
+            LazyVStack(alignment: .leading, spacing: theme.unit(.spacingMedium)) {
                 introduction
                 directionControls
                 colorSection
@@ -41,30 +41,30 @@ struct ShowcaseView: View {
                 typographySection
                 spacingSection
             }
-            .padding(theme.unit(.spaceMedium))
+            .padding(theme.unit(.spacingMedium))
         }
-        .background(theme.color(.colorBackground).ignoresSafeArea())
+        .background(theme.color(.surfaceBackground).ignoresSafeArea())
         .navigationTitle("Gamma")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(SampleAppAccessibility.showcase)
     }
 
     private var introduction: some View {
-        VStack(alignment: .leading, spacing: theme.unit(.spaceSmall)) {
+        VStack(alignment: .leading, spacing: theme.unit(.spacingSmall)) {
             Text("Design tokens, resolved live")
-                .font(theme.font(.fontDisplay))
+                .font(theme.font(.typographyDisplay))
                 .accessibilityIdentifier(SampleAppAccessibility.title)
 
             DSText("A small catalogue for exploring themes, mode resolution, typography, and responsive units.")
-                .font(theme.font(.fontBody))
-                .foregroundStyle(theme.color(.colorTextSecondary))
+                .font(theme.font(.typographyBody))
+                .foregroundStyle(theme.color(.textSecondary))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var directionControls: some View {
         SampleCard {
-            VStack(alignment: .leading, spacing: theme.unit(.spaceSmall)) {
+            VStack(alignment: .leading, spacing: theme.unit(.spacingSmall)) {
                 SectionTitle("Mode resolver")
 
                 HStack {
@@ -73,47 +73,47 @@ struct ShowcaseView: View {
                 }
 
                 Text(statusDescription)
-                    .font(theme.font(.fontBody))
-                    .foregroundStyle(theme.color(.colorTextSecondary))
+                    .font(theme.font(.typographyBody))
+                    .foregroundStyle(theme.color(.textSecondary))
                     .accessibilityIdentifier(SampleAppAccessibility.modeStatus)
 
                 Label(fontRegistrationDescription, systemImage: fontsAreRegistered ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .font(theme.font(.fontCaption))
-                    .foregroundStyle(fontsAreRegistered ? theme.color(.colorAccent) : theme.color(.colorTextSecondary))
+                    .font(theme.font(.typographyCaption))
+                    .foregroundStyle(fontsAreRegistered ? theme.color(.brandAccent) : theme.color(.textSecondary))
                     .accessibilityIdentifier(SampleAppAccessibility.fontStatus)
             }
         }
     }
 
     private var colorSection: some View {
-        VStack(alignment: .leading, spacing: theme.unit(.spaceSmall)) {
+        VStack(alignment: .leading, spacing: theme.unit(.spacingSmall)) {
             SectionTitle("Colors")
                 .accessibilityIdentifier(SampleAppAccessibility.colorsSection)
 
-            HStack(spacing: theme.unit(.spaceSmall)) {
-                ColorSwatch(name: "Accent", alias: .colorAccent)
-                ColorSwatch(name: "Surface", alias: .colorSurface)
-                ColorSwatch(name: "Text", alias: .colorTextPrimary)
+            HStack(spacing: theme.unit(.spacingSmall)) {
+                ColorSwatch(name: "Accent", alias: .brandAccent)
+                ColorSwatch(name: "Surface", alias: .surfaceSurface)
+                ColorSwatch(name: "Text", alias: .textPrimary)
             }
         }
     }
 
     private var typographySection: some View {
         SampleCard {
-            VStack(alignment: .leading, spacing: theme.unit(.spaceMedium)) {
+            VStack(alignment: .leading, spacing: theme.unit(.spacingMedium)) {
                 SectionTitle("Typography")
                     .accessibilityIdentifier(SampleAppAccessibility.typographySection)
 
-                typographyRow("Display", sample: "A coherent visual voice", font: .fontDisplay)
-                typographyRow("Body", sample: "Readable at every Dynamic Type size.", font: .fontBody)
+                typographyRow("Display", sample: "A coherent visual voice", font: .typographyDisplay)
+                typographyRow("Body", sample: "Readable at every Dynamic Type size.", font: .typographyBody)
                 typographyRow(
                     "Arabic",
                     sample: "نظام تصميم واحد، تجربة متناسقة.",
-                    font: .fontBody,
+                    font: .typographyBody,
                     accessibilityIdentifier: SampleAppAccessibility.arabicSample
                 )
-                typographyRow("Mixed-script cascade", sample: "Gamma يدعم النص العربي واللاتيني.", font: .fontBody)
-                typographyRow("Caption", sample: "Supporting context", font: .fontCaption)
+                typographyRow("Mixed-script cascade", sample: "Gamma يدعم النص العربي واللاتيني.", font: .typographyBody)
+                typographyRow("Caption", sample: "Supporting context", font: .typographyCaption)
             }
         }
     }
@@ -123,26 +123,26 @@ struct ShowcaseView: View {
         let illustration: Theme.AssetAlias<IllustrationAsset> = .tokenFlow
 
         return SampleCard {
-            VStack(alignment: .leading, spacing: theme.unit(.spaceMedium)) {
+            VStack(alignment: .leading, spacing: theme.unit(.spacingMedium)) {
                 SectionTitle("Generated assets")
                     .accessibilityIdentifier(SampleAppAccessibility.assetsSection)
 
-                HStack(spacing: theme.unit(.spaceMedium)) {
+                HStack(spacing: theme.unit(.spacingMedium)) {
                     Image(icon.rawValue, bundle: icon.bundle)
                         .renderingMode(.template)
                         .resizable()
                         .scaledToFit()
-                        .foregroundStyle(theme.color(.colorAccent))
+                        .foregroundStyle(theme.color(.brandAccent))
                         .frame(width: 52, height: 52)
                         .accessibilityLabel("Generated theme spark icon")
                         .accessibilityIdentifier(SampleAppAccessibility.iconAsset)
 
-                    VStack(alignment: .leading, spacing: theme.unit(.spaceSmall)) {
+                    VStack(alignment: .leading, spacing: theme.unit(.spacingSmall)) {
                         DSText("Theme icon")
-                            .font(theme.font(.fontBody))
+                            .font(theme.font(.typographyBody))
                         DSText("Loaded through Theme.IconAlias.themeSpark")
-                            .font(theme.font(.fontCaption))
-                            .foregroundStyle(theme.color(.colorTextSecondary))
+                            .font(theme.font(.typographyCaption))
+                            .foregroundStyle(theme.color(.textSecondary))
                     }
                 }
 
@@ -157,20 +157,20 @@ struct ShowcaseView: View {
 
     private var spacingSection: some View {
         SampleCard {
-            VStack(alignment: .leading, spacing: theme.unit(.spaceMedium)) {
+            VStack(alignment: .leading, spacing: theme.unit(.spacingMedium)) {
                 SectionTitle("Responsive units")
                     .accessibilityIdentifier(SampleAppAccessibility.spacingSection)
 
-                unitRow("Small", alias: .spaceSmall)
-                unitRow("Medium", alias: .spaceMedium)
-                unitRow("Large", alias: .spaceLarge)
+                unitRow("Small", alias: .spacingSmall)
+                unitRow("Medium", alias: .spacingMedium)
+                unitRow("Large", alias: .spacingLarge)
             }
         }
     }
 
     private var statusDescription: String {
         let direction = layoutDirection == .rightToLeft ? "RTL" : "LTR"
-        let fontName = theme.font(.fontBody).uiFont(for: dynamicTypeSize).fontName
+        let fontName = theme.font(.typographyBody).uiFont(for: dynamicTypeSize).fontName
         let width = horizontalSizeClass == .regular ? "regular units" : "compact units"
         return "\(direction) · \(fontName) primary · \(width)"
     }
@@ -189,7 +189,7 @@ struct ShowcaseView: View {
             layoutDirection = direction
         }
         .buttonStyle(.borderedProminent)
-        .tint(layoutDirection == direction ? theme.color(.colorAccent) : theme.color(.colorTextSecondary))
+        .tint(layoutDirection == direction ? theme.color(.brandAccent) : theme.color(.textSecondary))
         .accessibilityIdentifier(
             direction == .rightToLeft
                 ? SampleAppAccessibility.rightToLeftButton
@@ -200,32 +200,35 @@ struct ShowcaseView: View {
     private func typographyRow(
         _ name: String,
         sample: String,
-        font: Theme.FontAlias,
+        font: Theme.Fonts.TypographyAlias,
         accessibilityIdentifier: String = ""
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(name)
-                .font(theme.font(.fontCaption))
-                .foregroundStyle(theme.color(.colorAccent))
+                .font(theme.font(.typographyCaption))
+                .foregroundStyle(theme.color(.brandAccent))
             DSText(sample)
                 .font(theme.font(font))
                 .accessibilityIdentifier(accessibilityIdentifier)
         }
     }
 
-    private func unitRow<Alias: UnitAlias>(_ name: String, alias: Alias) -> some View {
+    private func unitRow<Group: ThemeTokenGroup>(
+        _ name: String,
+        alias: Theme.Alias<Group>
+    ) -> some View where Group.Family == Theme.Units {
         let value = theme.unit(alias)
 
-        return HStack(spacing: theme.unit(.spaceSmall)) {
+        return HStack(spacing: theme.unit(.spacingSmall)) {
             Text(name)
-                .font(theme.font(.fontBody))
+                .font(theme.font(.typographyBody))
             Spacer()
             RoundedRectangle(cornerRadius: 4)
-                .fill(theme.color(.colorAccent))
+                .fill(theme.color(.brandAccent))
                 .frame(width: value, height: 12)
             Text("\(value.formatted()) pt")
-                .font(theme.font(.fontCaption))
-                .foregroundStyle(theme.color(.colorTextSecondary))
+                .font(theme.font(.typographyCaption))
+                .foregroundStyle(theme.color(.textSecondary))
                 .monospacedDigit()
         }
     }
@@ -233,14 +236,30 @@ struct ShowcaseView: View {
 
 private struct SampleCard<Content: View>: View {
     @ThemeReader private var theme
+
+    let background: Theme.Colors.SurfaceAlias
+    let padding: Theme.Units.SpacingAlias
+    let cornerRadius: Theme.Units.RadiusAlias
     @ViewBuilder let content: Content
+
+    init(
+        background: Theme.Colors.SurfaceAlias = .surfaceSurface,
+        padding: Theme.Units.SpacingAlias = .spacingMedium,
+        cornerRadius: Theme.Units.RadiusAlias = .radiusCard,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.background = background
+        self.padding = padding
+        self.cornerRadius = cornerRadius
+        self.content = content()
+    }
 
     var body: some View {
         content
-            .padding(theme.unit(.spaceMedium))
+            .padding(theme.unit(padding))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(theme.color(.colorSurface))
-            .clipShape(RoundedRectangle(cornerRadius: theme.unit(.radiusCard)))
+            .background(theme.color(background))
+            .clipShape(RoundedRectangle(cornerRadius: theme.unit(cornerRadius)))
     }
 }
 
@@ -254,23 +273,23 @@ private struct SectionTitle: View {
 
     var body: some View {
         Text(title)
-            .font(theme.font(.fontCaption))
-            .foregroundStyle(theme.color(.colorTextSecondary))
+            .font(theme.font(.typographyCaption))
+            .foregroundStyle(theme.color(.textSecondary))
     }
 }
 
-private struct ColorSwatch: View {
+private struct ColorSwatch<Group: ThemeTokenGroup>: View where Group.Family == Theme.Colors {
     @ThemeReader private var theme
     let name: String
-    let alias: Theme.ColorAlias
+    let alias: Theme.Alias<Group>
 
     var body: some View {
-        VStack(alignment: .leading, spacing: theme.unit(.spaceSmall)) {
-            RoundedRectangle(cornerRadius: theme.unit(.spaceSmall))
+        VStack(alignment: .leading, spacing: theme.unit(.spacingSmall)) {
+            RoundedRectangle(cornerRadius: theme.unit(.spacingSmall))
                 .fill(theme.color(alias))
                 .frame(height: 72)
             Text(name)
-                .font(theme.font(.fontCaption))
+                .font(theme.font(.typographyCaption))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

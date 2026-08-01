@@ -26,8 +26,8 @@ import SwiftUI
 ///
 /// ```swift
 /// @ThemeReader private var theme
-/// // theme.color(.colorTextPrimary)
-/// // theme.font(.fontBody)
+/// // theme.color(.textPrimary)
+/// // theme.font(.typographyBody)
 /// ```
 @propertyWrapper
 public struct ThemeReader: DynamicProperty {

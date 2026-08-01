@@ -190,11 +190,11 @@ struct ThemeModeResolverTests {
         {
           "id": "test-theme",
           "defaults": {
-            "font": "body",
-            "primaryTextColor": "text"
+            "font": "typography/body",
+            "primaryTextColor": "content/text"
           },
           "colors": {
-            "text": {
+            "content/text": {
               "name": "Text",
               "group": "content",
               "description": "",
@@ -205,7 +205,7 @@ struct ThemeModeResolverTests {
             }
           },
           "fonts": {
-            "body": {
+            "typography/body": {
               "name": "Body",
               "group": "typography",
               "description": "ios:body",
@@ -221,7 +221,7 @@ struct ThemeModeResolverTests {
             }
           },
           "units": {
-            "spacing": {
+            "spacing/default": {
               "name": "spacing",
               "group": "spacing",
               "description": "",
@@ -287,9 +287,12 @@ nonisolated private struct TestMotionToken: ThemeExtensionToken {
     let modes: [String: String]
 }
 
-private struct SpacingAlias: UnitAlias {
-    let rawValue: String
+nonisolated private enum SpacingGroup: ThemeTokenGroup {
+    typealias Family = Theme.Units
+    static let name = "spacing"
 }
+
+private typealias SpacingAlias = Theme.Alias<SpacingGroup>
 
 private struct UnitProbe: View {
     @ThemeReader private var theme
@@ -297,7 +300,7 @@ private struct UnitProbe: View {
     let onResolve: (CGFloat) -> Void
 
     var body: some View {
-        let resolvedUnit = theme.unit(SpacingAlias(rawValue: "spacing"))
+        let resolvedUnit = theme.unit(SpacingAlias(rawValue: "spacing/default"))
         onResolve(resolvedUnit)
         return Color.clear
     }

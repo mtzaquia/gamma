@@ -51,16 +51,19 @@ struct ThemeResourceModifierTests {
     }
 }
 
-private struct ResourceUnitAlias: UnitAlias {
-    let rawValue: String
+nonisolated private enum ResourceUnitGroup: ThemeTokenGroup {
+    typealias Family = Theme.Units
+    static let name = "spacing"
 }
+
+private typealias ResourceUnitAlias = Theme.Alias<ResourceUnitGroup>
 
 private struct ResourceUnitProbe: View {
     @ThemeReader private var theme
     let onResolve: (CGFloat) -> Void
 
     var body: some View {
-        let value = theme.unit(ResourceUnitAlias(rawValue: "spacing"))
+        let value = theme.unit(ResourceUnitAlias(rawValue: "spacing/default"))
         onResolve(value)
         return Color.clear
     }

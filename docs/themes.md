@@ -1,6 +1,6 @@
 # Theme format
 
-A theme is a JSON document decoded as `RawTheme`. Token keys are stable identifiers; display names and groups are metadata.
+A theme is a JSON document decoded as `RawTheme`. Token keys are stable identifiers. A grouped token key has the exact form `<group>/<name>`; its first path component must exactly match its `group` field.
 
 | Field | Purpose |
 | --- | --- |
@@ -11,7 +11,7 @@ A theme is a JSON document decoded as `RawTheme`. Token keys are stable identifi
 | `units` | Numeric spacing, sizing, or radius tokens keyed by alias. |
 | Other keys | [Consumer-defined token families](theme-extensions.md) preserved by `RawTheme`. |
 
-Every color, font, and unit entry contains `name`, `group`, `description`, and `modes`. The first three fields are required by the schema; `name` must be non-empty, while `group` and `description` may be empty.
+Every color, font, and unit entry contains `name`, `group`, `description`, and `modes`. The first three fields are required by the schema; `name` must be non-empty, while `group` and `description` may be empty. A token with an empty group uses a single-component key with no slash.
 
 Each successfully decoded payload receives a separate runtime identity. Replacing server data therefore updates SwiftUI and resolution caches even when the logical `id` remains unchanged.
 
@@ -25,9 +25,9 @@ Defaults reference keys in the same document.
 
 ```json
 "defaults": {
-  "font": "font/body",
-  "primaryTextColor": "color/text-primary",
-  "secondaryTextColor": "color/text-secondary"
+  "font": "typography/body",
+  "primaryTextColor": "text/primary",
+  "secondaryTextColor": "text/secondary"
 }
 ```
 
@@ -38,9 +38,9 @@ Defaults reference keys in the same document.
 Each color mode contains a six-digit `#RRGGBB` value and an alpha between `0` and `1`.
 
 ```json
-"color/background": {
+"surface/background": {
   "name": "Background",
-  "group": "Surface",
+  "group": "surface",
   "description": "App background",
   "modes": {
     "day": { "hex": "#F3F5FA", "alpha": 1 },
@@ -56,9 +56,9 @@ Mode names are yours. The resolver chooses which mode represents light appearanc
 A font mode describes one face and its design metrics.
 
 ```json
-"font/body": {
+"typography/body": {
   "name": "Body",
-  "group": "Typography",
+  "group": "typography",
   "description": "ios:body",
   "modes": {
     "default": {
@@ -87,9 +87,9 @@ The description may include an iOS text-style marker so Dynamic Type uses the ma
 Units are finite numeric values. A non-empty group produces the generated alias type; all units in that group share it. Units with an empty group remain valid but do not receive a grouped generated alias.
 
 ```json
-"space/medium": {
+"spacing/medium": {
   "name": "Medium",
-  "group": "Spacing",
+  "group": "spacing",
   "description": "Default content spacing",
   "modes": {
     "default": 16
@@ -97,13 +97,14 @@ Units are finite numeric values. A non-empty group produces the generated alias 
 }
 ```
 
-This group generates `Theme.SpacingAlias`; the token itself is available as `.spaceMedium` where that alias type is inferred. Responsive modes such as `compact` and `regular` remain available through a custom resolver.
+This group generates `Theme.Units.SpacingAlias`; the token itself is available as `.spacingMedium`. Responsive modes such as `compact` and `regular` remain available through a custom resolver.
 
 ## Validation
 
 `RawTheme` rejects malformed built-in schema during decoding. Validation checks:
 
 - non-empty theme IDs, token keys, and names;
+- exact `<group>/<name>` keys for grouped tokens, and slash-free keys for empty groups;
 - defaults that reference existing tokens;
 - at least one mode for every token;
 - color format and alpha bounds;

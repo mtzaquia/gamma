@@ -84,17 +84,23 @@ swift run gamma-codegen \
 | Input | Declaration |
 | --- | --- |
 | File `Brand Default.theme.json` | `ThemeResource.brandDefault` |
-| Color key `color/text-primary` | `Theme.ColorAlias.colorTextPrimary` |
-| Font key `font/body` | `Theme.FontAlias.fontBody` |
-| Unit group `Spacing` | `Theme.SpacingAlias` |
-| Unit key `space/medium` | `UnitAlias.spaceMedium` constrained to `Theme.SpacingAlias` |
+| Color group `text` | `Theme.Colors.TextAlias` |
+| Color key `text/primary` | `.textPrimary` constrained to `Theme.Colors.TextAlias` |
+| Font group `typography` | `Theme.Fonts.TypographyAlias` |
+| Font key `typography/body` | `.typographyBody` constrained to `Theme.Fonts.TypographyAlias` |
+| Unit group `spacing` | `Theme.Units.SpacingAlias` |
+| Unit key `spacing/medium` | `.spacingMedium` constrained to `Theme.Units.SpacingAlias` |
 | Image set `close.imageset` | Icon asset alias `.close` |
 
 Names are normalized into Swift identifiers, leading digits receive an underscore, reserved words are escaped, and raw values are emitted as escaped Swift string literals.
 
-Normalization keeps ASCII letters and digits and treats other characters as separators. For example, `1x/foo` becomes `_1xFoo` and `icon@2x` becomes `icon2x`. A name with no ASCII identifier content fails generation.
+The group becomes the nested alias type name and the complete key becomes the accessor. Keeping the group in the member name disambiguates direct family resolution: `theme.unit(.spacingMedium)` and `theme.unit(.sizeMedium)` can coexist. Normalization keeps ASCII letters and digits and treats other characters as separators. For example, `scale/1x-large` in group `scale` becomes `.scale1xLarge`. A name with no ASCII identifier content fails generation.
 
-Generation fails when distinct source names normalize to the same declaration—for example, `foo-bar` and `foo_bar`. Accessor names may repeat across different alias types, while nested type names must remain unique. Consumer-defined roots also generate typed declarations; see [Theme extensions](theme-extensions.md#generated-api).
+Generation fails when distinct source names normalize to the same declaration—for example, `foo-bar` and `foo_bar` within one family and group. Accessor and group names may repeat in different family namespaces. Consumer-defined roots also generate typed declarations; see [Theme extensions](theme-extensions.md#generated-api).
+
+A token with an empty `group` remains available through its family scope, such as `Theme.Alias<Theme.Fonts>`. Its single-component key becomes the accessor directly, so key `body` generates `.body`. It does not generate an `UngroupedAlias`, because there is no semantic group for a component parameter to require.
+
+Grouped keys must contain exactly two non-empty components and begin with the exact `group` value. An empty group requires a single-component key. Generation fails instead of silently deriving a different group from the key.
 
 Pass `--input` more than once to validate and generate a theme family explicitly:
 

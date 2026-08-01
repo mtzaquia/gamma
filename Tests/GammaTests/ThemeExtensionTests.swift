@@ -37,7 +37,7 @@ struct ThemeExtensionTests {
             in: theme
         )
         let tokens = try #require(decodedTokens)
-        let hero = try #require(tokens["gradient/hero"])
+        let hero = try #require(tokens["brand/hero"])
 
         #expect(hero.name == "Hero")
         #expect(hero.group == "brand")
@@ -63,9 +63,9 @@ struct ThemeExtensionTests {
         )
         let paths = Set(issues.map(\.path))
 
-        #expect(paths.contains("gradients.gradient/hero.name"))
-        #expect(paths.contains("gradients.gradient/hero.group"))
-        #expect(paths.contains("gradients.gradient/hero.modes"))
+        #expect(paths.contains("gradients.brand/hero.name"))
+        #expect(paths.contains("gradients.brand/hero.group"))
+        #expect(paths.contains("gradients.brand/hero.modes"))
     }
 
     @Test("Registered extensions must be present in the installed theme")
@@ -149,7 +149,7 @@ struct ThemeExtensionTests {
             extensions: [registration]
         )
         #expect(modeIssues.contains {
-            $0.path == "gradients.gradient/hero.modes.highContrast"
+            $0.path == "gradients.brand/hero.modes.highContrast"
         })
     }
 
@@ -161,11 +161,11 @@ struct ThemeExtensionTests {
     {
       "id": "extension-theme",
       "defaults": {
-        "font": "body",
-        "primaryTextColor": "text"
+        "font": "typography/body",
+        "primaryTextColor": "content/text"
       },
       "colors": {
-        "text": {
+        "content/text": {
           "name": "Text",
           "group": "content",
           "description": "",
@@ -176,7 +176,7 @@ struct ThemeExtensionTests {
         }
       },
       "fonts": {
-        "body": {
+        "typography/body": {
           "name": "Body",
           "group": "typography",
           "description": "ios:body",
@@ -193,7 +193,7 @@ struct ThemeExtensionTests {
       },
       "units": {},
       "gradients": {
-        "gradient/hero": {
+        "brand/hero": {
           "name": "Hero",
           "group": "brand",
           "modes": {
@@ -220,16 +220,23 @@ public extension Theme {
     nonisolated enum TestGradients {
         public static let key = "gradients"
     }
-
-    typealias TestGradientsAlias = ThemeExtensionAlias<TestGradients>
 }
 
 extension Theme.TestGradients: ThemeExtension {
     public typealias Token = TestGradientToken
 }
 
-public extension ThemeExtensionAlias where Extension == Theme.TestGradients {
-    static var gradientHero: Self { Self(rawValue: "gradient/hero") }
+public extension Theme.TestGradients {
+    nonisolated enum BrandGroup: ThemeTokenGroup {
+        public typealias Family = Theme.TestGradients
+        public static let name = "brand"
+    }
+
+    typealias BrandAlias = Theme.Alias<BrandGroup>
+}
+
+public extension Theme.Alias where Scope == Theme.TestGradients.BrandGroup {
+    static var brandHero: Self { Self(rawValue: "brand/hero") }
 }
 
 private struct ExtensionProbe: View {
@@ -239,7 +246,7 @@ private struct ExtensionProbe: View {
     let onResolve: (TestGradientToken.Mode?, Int) -> Void
 
     var body: some View {
-        onResolve(theme.resolve(.gradientHero), themeExtensions.count)
+        onResolve(theme.resolve(.brandHero), themeExtensions.count)
         return Color.clear
     }
 }

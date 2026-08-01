@@ -86,7 +86,7 @@ public struct ThemeProxy: DynamicProperty {
 }
 
 public extension ThemeProxy {
-    /// Resolves one consumer-defined alias to its selected mode payload.
+    /// Resolves one consumer-defined token alias to its selected mode payload.
     ///
     /// The active ``ThemeModeResolving`` implementation selects the mode name
     /// for each custom family. This method decodes the token and returns that
@@ -96,14 +96,14 @@ public extension ThemeProxy {
     /// - Parameter alias: The typed token alias to resolve.
     /// - Returns: The selected mode payload, or `nil` when the family, token,
     ///   selection, or selected mode is unavailable or invalid.
-    func resolve<Extension: ThemeExtension>(
-        _ alias: ThemeExtensionAlias<Extension>
-    ) -> Extension.Token.Mode?
-    where Extension.Selection == String {
+    func resolve<Scope: ThemeAliasScope>(
+        _ alias: Theme.Alias<Scope>
+    ) -> Scope.Family.Token.Mode?
+    where Scope.Family: ThemeExtension, Scope.Family.Selection == String {
         let snapshot = currentSnapshot
 
         guard let selectedMode = selection(
-            for: Extension.self,
+            for: Scope.Family.self,
             alias: alias.rawValue,
             in: snapshot
         ) else {
@@ -111,7 +111,7 @@ public extension ThemeProxy {
         }
         guard !selectedMode.isEmpty else {
             ThemeDiagnostics.resolutionFailure(
-                kind: Extension.key,
+                kind: Scope.Family.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "the resolver selected an empty mode name"
@@ -121,11 +121,11 @@ public extension ThemeProxy {
 
         do {
             guard let token = try ThemeExtensionTokenCache.tokens(
-                for: Extension.self,
+                for: Scope.Family.self,
                 in: snapshot.theme
             )?[alias.rawValue] else {
                 ThemeDiagnostics.resolutionFailure(
-                    kind: Extension.key,
+                    kind: Scope.Family.key,
                     alias: alias.rawValue,
                     themeInstanceID: snapshot.theme.instanceID,
                     detail: "the token does not exist in theme \(snapshot.theme.id)"
@@ -133,9 +133,19 @@ public extension ThemeProxy {
                 return nil
             }
 
+            if let groupName = Scope.groupName, token.group != groupName {
+                ThemeDiagnostics.resolutionFailure(
+                    kind: Scope.Family.key,
+                    alias: alias.rawValue,
+                    themeInstanceID: snapshot.theme.instanceID,
+                    detail: "the token belongs to group \(token.group.debugDescription), not \(groupName.debugDescription)"
+                )
+                return nil
+            }
+
             guard let mode = token.modes[selectedMode] else {
                 ThemeDiagnostics.resolutionFailure(
-                    kind: Extension.key,
+                    kind: Scope.Family.key,
                     alias: alias.rawValue,
                     themeInstanceID: snapshot.theme.instanceID,
                     detail: "mode \(selectedMode) is missing"
@@ -145,7 +155,7 @@ public extension ThemeProxy {
             return mode
         } catch {
             ThemeDiagnostics.resolutionFailure(
-                kind: Extension.key,
+                kind: Scope.Family.key,
                 alias: alias.rawValue,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "the payload is invalid: \(themeDecodingDescription(error))"
@@ -155,30 +165,46 @@ public extension ThemeProxy {
     }
 
     /// Resolves a color alias to a `Color` that adapts to light and dark mode.
-    func color(_ alias: Theme.ColorAlias) -> Color {
+    ///
+    /// - Parameter alias: An alias from any group owned by ``Theme/Colors``.
+    /// - Returns: The resolved dynamic color, or Gamma's color fallback when
+    ///   resolution fails.
+    func color<Scope: ThemeAliasScope>(_ alias: Theme.Alias<Scope>) -> Color
+    where Scope.Family == Theme.Colors {
+        let key = alias.rawValue
         let snapshot = currentSnapshot
-        let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: alias.rawValue)
+        let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: key)
 
         guard let selectedModes = selection(
             for: Theme.Colors.self,
-            alias: alias.rawValue,
+            alias: key,
             in: snapshot
         ) else {
             return fallbackColor(light: .black, dark: .white, cacheKey: cacheKey)
         }
 
-        if let color = ThemeProxyCache.colorCache[cacheKey] {
-            return color
-        }
-
-        guard let rawColor = snapshot.theme.colors[alias.rawValue] else {
+        guard let rawColor = snapshot.theme.colors[key] else {
             ThemeDiagnostics.resolutionFailure(
                 kind: Theme.Colors.key,
-                alias: alias.rawValue,
+                alias: key,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "the token does not exist in theme \(snapshot.theme.id)"
             )
             return fallbackColor(light: .black, dark: .white, cacheKey: cacheKey)
+        }
+
+        if let groupName = Scope.groupName, rawColor.group != groupName {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Theme.Colors.key,
+                alias: key,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the token belongs to group \(rawColor.group.debugDescription), not \(groupName.debugDescription)"
+            )
+            return fallbackColor(light: .black, dark: .white, cacheKey: cacheKey)
+        }
+
+        if let color = ThemeProxyCache.colorCache[cacheKey] {
+            return color
         }
 
         let lightMode = rawColor.modes[selectedModes.light]
@@ -187,7 +213,7 @@ public extension ThemeProxy {
         if lightMode == nil {
             ThemeDiagnostics.resolutionFailure(
                 kind: Theme.Colors.key,
-                alias: alias.rawValue,
+                alias: key,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "mode \(selectedModes.light) is missing"
             )
@@ -195,7 +221,7 @@ public extension ThemeProxy {
         if darkMode == nil {
             ThemeDiagnostics.resolutionFailure(
                 kind: Theme.Colors.key,
-                alias: alias.rawValue,
+                alias: key,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "mode \(selectedModes.dark) is missing"
             )
@@ -208,15 +234,41 @@ public extension ThemeProxy {
 
     /// Resolves a font alias to a ``ThemeFont`` for the current layout direction.
     /// Pass the result to Gamma's `View.font(_:)` modifier.
-    func font(_ alias: Theme.FontAlias) -> ThemeFont {
+    ///
+    /// - Parameter alias: An alias from any group owned by ``Theme/Fonts``.
+    /// - Returns: The resolved theme font, or a system-font fallback when
+    ///   resolution fails.
+    func font<Scope: ThemeAliasScope>(_ alias: Theme.Alias<Scope>) -> ThemeFont
+    where Scope.Family == Theme.Fonts {
+        let key = alias.rawValue
         let snapshot = currentSnapshot
-        let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: alias.rawValue)
+        let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: key)
 
         guard let selectedModes = selection(
             for: Theme.Fonts.self,
-            alias: alias.rawValue,
+            alias: key,
             in: snapshot
         ) else {
+            return .fallback
+        }
+
+        guard let rawFont = snapshot.theme.fonts[key] else {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Theme.Fonts.key,
+                alias: key,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the token does not exist in theme \(snapshot.theme.id)"
+            )
+            return .fallback
+        }
+
+        if let groupName = Scope.groupName, rawFont.group != groupName {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Theme.Fonts.key,
+                alias: key,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the token belongs to group \(rawFont.group.debugDescription), not \(groupName.debugDescription)"
+            )
             return .fallback
         }
 
@@ -224,20 +276,10 @@ public extension ThemeProxy {
             return cached
         }
 
-        guard let rawFont = snapshot.theme.fonts[alias.rawValue] else {
-            ThemeDiagnostics.resolutionFailure(
-                kind: Theme.Fonts.key,
-                alias: alias.rawValue,
-                themeInstanceID: snapshot.theme.instanceID,
-                detail: "the token does not exist in theme \(snapshot.theme.id)"
-            )
-            return .fallback
-        }
-
         guard let primaryMode = rawFont.modes[selectedModes.primary] else {
             ThemeDiagnostics.resolutionFailure(
                 kind: Theme.Fonts.key,
-                alias: alias.rawValue,
+                alias: key,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "primary mode \(selectedModes.primary) is missing"
             )
@@ -248,7 +290,7 @@ public extension ThemeProxy {
         if !missingCascades.isEmpty {
             ThemeDiagnostics.resolutionFailure(
                 kind: Theme.Fonts.key,
-                alias: alias.rawValue,
+                alias: key,
                 themeInstanceID: snapshot.theme.instanceID,
                 detail: "cascade modes \(missingCascades.joined(separator: ", ")) are missing"
             )
@@ -273,7 +315,11 @@ public extension ThemeProxy {
     }
 
     /// Resolves a unit alias to a `CGFloat` for this platform.
-    func unit(_ alias: some UnitAlias) -> CGFloat {
+    ///
+    /// - Parameter alias: An alias from any group owned by ``Theme/Units``.
+    /// - Returns: The resolved unit, or `0` when resolution fails.
+    func unit<Scope: ThemeAliasScope>(_ alias: Theme.Alias<Scope>) -> CGFloat
+    where Scope.Family == Theme.Units {
         let snapshot = currentSnapshot
         let cacheKey = ThemeTokenCacheKey(scope: snapshot.cacheScope, alias: alias.rawValue)
 
@@ -285,10 +331,6 @@ public extension ThemeProxy {
             return 0
         }
 
-        if let cached = ThemeProxyCache.unitCache[cacheKey] {
-            return cached
-        }
-
         guard let rawUnit = snapshot.theme.units[alias.rawValue] else {
             ThemeDiagnostics.resolutionFailure(
                 kind: Theme.Units.key,
@@ -297,6 +339,20 @@ public extension ThemeProxy {
                 detail: "the token does not exist in theme \(snapshot.theme.id)"
             )
             return 0
+        }
+
+        if let groupName = Scope.groupName, rawUnit.group != groupName {
+            ThemeDiagnostics.resolutionFailure(
+                kind: Theme.Units.key,
+                alias: alias.rawValue,
+                themeInstanceID: snapshot.theme.instanceID,
+                detail: "the token belongs to group \(rawUnit.group.debugDescription), not \(groupName.debugDescription)"
+            )
+            return 0
+        }
+
+        if let cached = ThemeProxyCache.unitCache[cacheKey] {
+            return cached
         }
 
         guard let result = rawUnit.modes[selectedMode] else {

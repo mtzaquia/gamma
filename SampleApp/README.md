@@ -16,7 +16,7 @@ Open `SampleApp.xcodeproj` and run the shared `SampleApp` scheme. The library su
 
 ## Code generation
 
-The app target has `GammaBuildPlugin` attached. A normal build discovers `SampleTheme.theme.json` and `Assets.xcassets`, generates the `.sampleTheme` resource handle, token aliases such as `.colorBackground`, `.fontBody`, and `.spaceMedium`, plus asset aliases `.themeSpark` and `.tokenFlow`, then compiles them with the app.
+The app target has `GammaBuildPlugin` attached. A normal build discovers `SampleTheme.theme.json` and `Assets.xcassets`, generates the `.sampleTheme` resource handle, group-scoped token aliases such as `.surfaceBackground`, `.typographyBody`, and `.spacingMedium`, plus asset aliases `.themeSpark` and `.tokenFlow`, then compiles them with the app.
 
 Generated files do not appear in the project navigator. The build log should contain:
 

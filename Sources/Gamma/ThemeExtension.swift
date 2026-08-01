@@ -20,8 +20,8 @@
 //  SOFTWARE.
 //
 
-import GammaSchema
 import Foundation
+import GammaSchema
 
 /// The shared structure of a token in a mode-resolved theme family.
 ///
@@ -43,8 +43,18 @@ nonisolated public protocol ThemeExtensionToken: Decodable {
     var modes: [String: Mode] { get }
 }
 
+/// Identifies the family and optional group constraint carried by a token alias.
+nonisolated public protocol ThemeAliasScope: Sendable {
+    /// The family that resolves aliases in this scope.
+    associatedtype Family
+
+    /// The exact token group required by the scope, or `nil` for any group in
+    /// the family.
+    static var groupName: String? { get }
+}
+
 /// Connects a token family to its concrete payload and resolver selection.
-nonisolated public protocol ThemeExtension {
+nonisolated public protocol ThemeExtension: ThemeAliasScope where Family == Self {
     /// The top-level JSON key whose value is the family's token dictionary.
     static var key: String { get }
 
@@ -54,6 +64,11 @@ nonisolated public protocol ThemeExtension {
     /// The resolver value for this family. Custom families normally use the
     /// default `String`; Gamma's built-in families may use richer policies.
     associatedtype Selection: Hashable & Sendable = String
+}
+
+public extension ThemeExtension {
+    /// Family-scoped aliases accept tokens from any group.
+    nonisolated static var groupName: String? { nil }
 }
 
 nonisolated extension RawColor: ThemeExtensionToken {}
@@ -92,15 +107,19 @@ public extension Theme {
     }
 }
 
-/// A typed alias for one token in a built-in or consumer-defined family.
-nonisolated public struct ThemeExtensionAlias<Extension: ThemeExtension>: RawRepresentable, Hashable, Sendable {
-    /// The token key as it appears in the extension's JSON dictionary.
-    public var rawValue: String
+/// Associates a generated token group with the family that resolves its aliases.
+///
+/// Gamma generates one marker conforming to this protocol for every distinct
+/// non-empty `group` value in each built-in or consumer-defined family. Tokens
+/// with an empty group use their family as the alias scope instead.
+nonisolated public protocol ThemeTokenGroup: ThemeAliasScope where Family: ThemeExtension {
+    /// The exact non-empty `group` value stored in the theme.
+    static var name: String { get }
+}
 
-    /// Creates an alias from a token key.
-    public init(rawValue: String) {
-        self.rawValue = rawValue
-    }
+public extension ThemeTokenGroup {
+    /// Group-scoped aliases require the marker's exact group name.
+    nonisolated static var groupName: String? { name }
 }
 
 /// Registers a consumer-defined token family for validation during theme installation.
@@ -204,8 +223,10 @@ extension RawTheme {
             }
 
             switch token["group"] {
-            case .string:
-                break
+            case let .string(group):
+                if let issue = extensionTokenIdentityIssue(alias: alias, group: group, path: path) {
+                    issues.append(issue)
+                }
             case nil:
                 issues.append(.init(path: "\(path).group", message: "field is required"))
             default:
@@ -226,6 +247,33 @@ extension RawTheme {
             }
         }
         return issues
+    }
+
+    private func extensionTokenIdentityIssue(
+        alias: String,
+        group: String,
+        path: String
+    ) -> ThemeValidationIssue? {
+        if group.isEmpty {
+            return alias.contains("/")
+                ? .init(
+                    path: "\(path).group",
+                    message: "an empty group requires a single-component token key"
+                )
+                : nil
+        }
+
+        let components = alias.split(separator: "/", omittingEmptySubsequences: false)
+        guard components.count == 2,
+              components[0] == group,
+              !components[1].isEmpty
+        else {
+            return .init(
+                path: "\(path).group",
+                message: "expected token key \(group.debugDescription)/<name>"
+            )
+        }
+        return nil
     }
 }
 

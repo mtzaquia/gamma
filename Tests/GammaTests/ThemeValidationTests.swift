@@ -48,7 +48,7 @@ struct ThemeValidationTests {
             "primaryTextColor": "missing-color"
           },
           "colors": {
-            "text": {
+            "content/text": {
               "name": "Text",
               "group": "content",
               "description": "",
@@ -58,7 +58,7 @@ struct ThemeValidationTests {
             }
           },
           "fonts": {
-            "body": {
+            "typography/body": {
               "name": "Body",
               "group": "typography",
               "description": "",
@@ -90,11 +90,11 @@ struct ThemeValidationTests {
         } catch let DecodingError.dataCorrupted(context) {
             #expect(context.debugDescription.contains("defaults.font"))
             #expect(context.debugDescription.contains("defaults.primaryTextColor"))
-            #expect(context.debugDescription.contains("colors.text.modes.light.hex"))
-            #expect(context.debugDescription.contains("colors.text.modes.light.alpha"))
-            #expect(context.debugDescription.contains("fonts.body.modes.default.fontName"))
-            #expect(context.debugDescription.contains("fonts.body.modes.default.fontSize"))
-            #expect(context.debugDescription.contains("fonts.body.modes.default.lineHeight"))
+            #expect(context.debugDescription.contains("colors.content/text.modes.light.hex"))
+            #expect(context.debugDescription.contains("colors.content/text.modes.light.alpha"))
+            #expect(context.debugDescription.contains("fonts.typography/body.modes.default.fontName"))
+            #expect(context.debugDescription.contains("fonts.typography/body.modes.default.fontSize"))
+            #expect(context.debugDescription.contains("fonts.typography/body.modes.default.lineHeight"))
             #expect(context.debugDescription.contains("units.spacing.modes"))
         } catch {
             Issue.record("Unexpected decoding error: \(error)")
@@ -104,11 +104,52 @@ struct ThemeValidationTests {
     @Test("Empty token groups are accepted")
     func emptyTokenGroupsAreAccepted() throws {
         let json = Self.validThemeJSON
+            .replacingOccurrences(of: #""font": "typography/body""#, with: #""font": "body""#)
+            .replacingOccurrences(of: #""primaryTextColor": "content/text""#, with: #""primaryTextColor": "text""#)
+            .replacingOccurrences(of: #""content/text": {"#, with: #""text": {"#)
+            .replacingOccurrences(of: #""typography/body": {"#, with: #""body": {"#)
+            .replacingOccurrences(of: #""spacing/default": {"#, with: #""spacing": {"#)
             .replacingOccurrences(of: #""group": "content""#, with: #""group": """#)
             .replacingOccurrences(of: #""group": "typography""#, with: #""group": """#)
             .replacingOccurrences(of: #""group": "spacing""#, with: #""group": """#)
 
         _ = try decode(json)
+    }
+
+    @Test("A grouped token key must begin with its exact group")
+    func groupedTokenKeyMustMatchGroup() {
+        let json = Self.validThemeJSON.replacingOccurrences(
+            of: #""group": "content""#,
+            with: #""group": "surface""#
+        )
+
+        do {
+            _ = try decode(json)
+            Issue.record("Expected mismatched token group decoding to fail")
+        } catch let DecodingError.dataCorrupted(context) {
+            #expect(context.debugDescription.contains("colors.content/text.group"))
+            #expect(context.debugDescription.contains(#"expected token key "surface"/<name>"#))
+        } catch {
+            Issue.record("Unexpected decoding error: \(error)")
+        }
+    }
+
+    @Test("An empty token group requires a single-component key")
+    func emptyTokenGroupRequiresSingleComponentKey() {
+        let json = Self.validThemeJSON.replacingOccurrences(
+            of: #""group": "content""#,
+            with: #""group": """#
+        )
+
+        do {
+            _ = try decode(json)
+            Issue.record("Expected grouped key with an empty group to fail")
+        } catch let DecodingError.dataCorrupted(context) {
+            #expect(context.debugDescription.contains("colors.content/text.group"))
+            #expect(context.debugDescription.contains("empty group requires a single-component token key"))
+        } catch {
+            Issue.record("Unexpected decoding error: \(error)")
+        }
     }
 
     @Test("Unknown font text cases are rejected")
@@ -133,11 +174,11 @@ struct ThemeValidationTests {
 
         let paths = Set(theme.validationIssues(resolvedModes: modes).map(\.path))
 
-        #expect(paths.contains("colors.text.modes.day"))
-        #expect(paths.contains("colors.text.modes.night"))
-        #expect(paths.contains("fonts.body.modes.primary"))
-        #expect(paths.contains("fonts.body.modes.fallback"))
-        #expect(paths.contains("units.spacing.modes.tablet"))
+        #expect(paths.contains("colors.content/text.modes.day"))
+        #expect(paths.contains("colors.content/text.modes.night"))
+        #expect(paths.contains("fonts.typography/body.modes.primary"))
+        #expect(paths.contains("fonts.typography/body.modes.fallback"))
+        #expect(paths.contains("units.spacing/default.modes.tablet"))
     }
 
     @Test("Resolver-selected font faces must be available to UIKit")
@@ -181,11 +222,11 @@ struct ThemeValidationTests {
     {
       "id": "valid-theme",
       "defaults": {
-        "font": "body",
-        "primaryTextColor": "text"
+        "font": "typography/body",
+        "primaryTextColor": "content/text"
       },
       "colors": {
-        "text": {
+        "content/text": {
           "name": "Text",
           "group": "content",
           "description": "",
@@ -196,7 +237,7 @@ struct ThemeValidationTests {
         }
       },
       "fonts": {
-        "body": {
+        "typography/body": {
           "name": "Body",
           "group": "typography",
           "description": "ios:body",
@@ -212,7 +253,7 @@ struct ThemeValidationTests {
         }
       },
       "units": {
-        "spacing": {
+        "spacing/default": {
           "name": "Spacing",
           "group": "spacing",
           "description": "",

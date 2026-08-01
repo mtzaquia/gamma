@@ -45,13 +45,13 @@ Add `App.theme.json` to the target. The `.theme.json` suffix lets the build plug
 {
   "id": "app-default",
   "defaults": {
-    "font": "font/body",
-    "primaryTextColor": "color/text-primary"
+    "font": "typography/body",
+    "primaryTextColor": "text/primary"
   },
   "colors": {
-    "color/text-primary": {
+    "text/primary": {
       "name": "Primary text",
-      "group": "Text",
+      "group": "text",
       "description": "Default foreground",
       "modes": {
         "light": { "hex": "#171A21", "alpha": 1 },
@@ -60,9 +60,9 @@ Add `App.theme.json` to the target. The `.theme.json` suffix lets the build plug
     }
   },
   "fonts": {
-    "font/body": {
+    "typography/body": {
       "name": "Body",
-      "group": "Typography",
+      "group": "typography",
       "description": "ios:body",
       "modes": {
         "default": {
@@ -76,9 +76,9 @@ Add `App.theme.json` to the target. The `.theme.json` suffix lets the build plug
     }
   },
   "units": {
-    "space/medium": {
+    "spacing/medium": {
       "name": "Medium",
-      "group": "Spacing",
+      "group": "spacing",
       "description": "Default content spacing",
       "modes": { "default": 16 }
     }
@@ -86,7 +86,7 @@ Add `App.theme.json` to the target. The `.theme.json` suffix lets the build plug
 }
 ```
 
-The build plugin generates `.colorTextPrimary`, `.fontBody`, and `.spaceMedium` from those keys.
+The build plugin generates `.textPrimary`, `.typographyBody`, and `.spacingMedium` on the `TextAlias`, `TypographyAlias`, and `SpacingAlias` scopes. A grouped key is always exactly `<group>/<name>`; the first path component must match the `group` field.
 
 This example follows the standard resolver contract: `light` and `dark` colors, plus `default` font and unit modes. Additional named modes require a custom resolver.
 
@@ -145,9 +145,9 @@ struct ContentView: View {
 
   var body: some View {
     DSText("Hello, design system")
-      .font(theme.font(.fontBody))
-      .foregroundStyle(theme.color(.colorTextPrimary))
-      .padding(theme.unit(.spaceMedium))
+      .font(theme.font(.typographyBody))
+      .foregroundStyle(theme.color(.textPrimary))
+      .padding(theme.unit(.spacingMedium))
   }
 }
 ```
@@ -164,7 +164,7 @@ HighContrastRoot()
   .theme(.brandHighContrast)
 ```
 
-Those files form one theme family and therefore generate one shared alias surface. Every variant must define the same color aliases, font aliases, unit aliases, and unit groups. If they drift, generation fails with the paths and exact missing, extra, or moved aliases.
+Those files form one theme family and therefore generate one shared alias surface. Every variant must define the same aliases and group assignment for colors, fonts, units, and custom families. If they drift, generation fails with the paths and exact missing, extra, or moved aliases.
 
 This contract check applies to files visible to the generator. If a theme exists only on a server, it must preserve the aliases compiled into the client. Its schema and resolver-selected modes are validated at runtime; a missing compiled token that was not otherwise required by the schema is diagnosed when `@ThemeReader` tries to resolve it.
 

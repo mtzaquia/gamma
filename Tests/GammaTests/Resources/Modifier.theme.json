@@ -1,11 +1,11 @@
 {
   "id": "modifier-resource",
   "defaults": {
-    "font": "body",
-    "primaryTextColor": "text"
+    "font": "typography/body",
+    "primaryTextColor": "content/text"
   },
   "colors": {
-    "text": {
+    "content/text": {
       "name": "Text",
       "group": "content",
       "description": "",
@@ -16,7 +16,7 @@
     }
   },
   "fonts": {
-    "body": {
+    "typography/body": {
       "name": "Body",
       "group": "typography",
       "description": "ios:body",
@@ -32,7 +32,7 @@
     }
   },
   "units": {
-    "spacing": {
+    "spacing/default": {
       "name": "Spacing",
       "group": "spacing",
       "description": "",

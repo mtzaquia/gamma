@@ -149,9 +149,9 @@ public extension View {
 private struct ThemeModifier: ViewModifier {
     @ThemeReader private var theme
 
-    let fontAlias: Theme.FontAlias
-    let primaryTextColorAlias: Theme.ColorAlias
-    let secondaryTextColorAlias: Theme.ColorAlias?
+    let fontAlias: Theme.Alias<Theme.Fonts>
+    let primaryTextColorAlias: Theme.Alias<Theme.Colors>
+    let secondaryTextColorAlias: Theme.Alias<Theme.Colors>?
 
     func body(content: Content) -> some View {
         let themeFont = theme.font(fontAlias)
@@ -159,7 +159,10 @@ private struct ThemeModifier: ViewModifier {
         Group {
             if let secondaryTextColorAlias {
                 content
-                    .foregroundStyle(theme.color(primaryTextColorAlias), theme.color(secondaryTextColorAlias))
+                    .foregroundStyle(
+                        theme.color(primaryTextColorAlias),
+                        theme.color(secondaryTextColorAlias)
+                    )
             } else {
                 content
                     .foregroundStyle(theme.color(primaryTextColorAlias))
@@ -169,9 +172,9 @@ private struct ThemeModifier: ViewModifier {
     }
 
     init(defaults: RawDefaults, fontURLs: [URL]) {
-        self.fontAlias = Theme.FontAlias(rawValue: defaults.font)
-        self.primaryTextColorAlias = Theme.ColorAlias(rawValue: defaults.primaryTextColor)
-        self.secondaryTextColorAlias = defaults.secondaryTextColor.map(Theme.ColorAlias.init(rawValue:))
+        fontAlias = Theme.Alias(rawValue: defaults.font)
+        primaryTextColorAlias = Theme.Alias(rawValue: defaults.primaryTextColor)
+        secondaryTextColorAlias = defaults.secondaryTextColor.map(Theme.Alias.init(rawValue:))
         Registrar.registerFonts(at: fontURLs)
     }
 }

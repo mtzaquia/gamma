@@ -378,6 +378,7 @@ package extension RawTheme {
             validateTokenMetadata(
                 token: token,
                 name: color.name,
+                group: color.group,
                 modesAreEmpty: color.modes.isEmpty,
                 kind: "colors",
                 issues: &issues
@@ -400,6 +401,7 @@ package extension RawTheme {
             validateTokenMetadata(
                 token: token,
                 name: font.name,
+                group: font.group,
                 modesAreEmpty: font.modes.isEmpty,
                 kind: "fonts",
                 issues: &issues
@@ -431,6 +433,7 @@ package extension RawTheme {
             validateTokenMetadata(
                 token: token,
                 name: unit.name,
+                group: unit.group,
                 modesAreEmpty: unit.modes.isEmpty,
                 kind: "units",
                 issues: &issues
@@ -465,6 +468,7 @@ package extension RawTheme {
     private func validateTokenMetadata(
         token: String,
         name: String,
+        group: String,
         modesAreEmpty: Bool,
         kind: String,
         issues: inout [ThemeValidationIssue]
@@ -472,6 +476,22 @@ package extension RawTheme {
         let path = "\(kind).\(token)"
         if token.isEmpty {
             issues.append(.init(path: kind, message: "token key must not be empty"))
+        }
+        if group.isEmpty {
+            if token.contains("/") {
+                issues.append(.init(
+                    path: "\(path).group",
+                    message: "an empty group requires a single-component token key"
+                ))
+            }
+        } else {
+            let components = token.split(separator: "/", omittingEmptySubsequences: false)
+            if components.count != 2 || components[0] != group || components[1].isEmpty {
+                issues.append(.init(
+                    path: "\(path).group",
+                    message: "expected token key \(group.debugDescription)/<name>"
+                ))
+            }
         }
         if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             issues.append(.init(path: "\(path).name", message: "token name must not be empty"))

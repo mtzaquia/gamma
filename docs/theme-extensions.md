@@ -8,9 +8,9 @@ A custom top-level key holds a dictionary keyed directly by token alias. There i
 
 ```json
 "gradients": {
-  "gradient/hero": {
+  "brand/hero": {
     "name": "Hero",
-    "group": "Brand",
+    "group": "brand",
     "description": "Primary brand gradient",
     "modes": {
       "day": { "stops": ["color/start", "color/end"] },
@@ -24,25 +24,34 @@ Mode names and payloads belong to the app. A family may use appearance variants,
 
 ## Generated API
 
-For every non-empty custom family in a build input, Gamma generates a family marker, typed alias, and token accessors:
+For every non-empty custom family in a build input, Gamma generates a family marker plus one typed alias scope for each non-empty token group:
 
 ```swift
 public extension Theme {
   nonisolated enum Gradients {
     nonisolated public static let key = "gradients"
   }
-
-  typealias GradientsAlias = ThemeExtensionAlias<Gradients>
 }
 
-public extension ThemeExtensionAlias where Extension == Theme.Gradients {
-  static var gradientHero: Self {
-    Self(rawValue: "gradient/hero")
+public extension Theme.Gradients {
+  nonisolated enum BrandGroup: ThemeTokenGroup {
+    public typealias Family = Theme.Gradients
+    nonisolated public static let name = "brand"
+  }
+
+  typealias BrandAlias = Theme.Alias<BrandGroup>
+}
+
+public extension Theme.Alias where Scope == Theme.Gradients.BrandGroup {
+  static var brandHero: Self {
+    Self(rawValue: "brand/hero")
   }
 }
 ```
 
-Accessor names may repeat across families because their alias types differ. Nested type names must remain unique: a `gradients` family and a `Gradients` unit group would both generate `Theme.GradientsAlias`, so generation fails with both sources.
+Accessor and group names may repeat across families because each family owns its namespace. A `Brand` gradient group and a `Brand` color group therefore generate `Theme.Gradients.BrandAlias` and `Theme.Colors.BrandAlias` without colliding.
+
+Tokens whose `group` is empty receive accessors on the family scope `Theme.Alias<Theme.Gradients>`. Gamma does not generate an `UngroupedAlias`, so components cannot treat the absence of a group as a semantic restriction.
 
 The roots `id`, `defaults`, `colors`, `fonts`, `units`, `assets`, and `illustrations` are reserved. Empty custom dictionaries do not generate declarations. Multiple theme variants in one target must expose the same non-empty custom families and token keys.
 
@@ -111,7 +120,7 @@ The overloads that use `DefaultThemeModeResolver` do not accept registrations be
 
 ```swift
 public extension ThemeProxy {
-  func gradient(_ alias: Theme.GradientsAlias) -> LinearGradient {
+  func gradient(_ alias: Theme.Gradients.BrandAlias) -> LinearGradient {
     guard let mode = resolve(alias) else {
       return LinearGradient(
         colors: [.clear],
@@ -121,7 +130,9 @@ public extension ThemeProxy {
     }
 
     return LinearGradient(
-      colors: mode.stops.map { color(Theme.ColorAlias(rawValue: $0)) },
+      colors: mode.stops.map {
+        color(Theme.Alias<Theme.Colors>(rawValue: $0))
+      },
       startPoint: .top,
       endPoint: .bottom
     )
@@ -136,7 +147,7 @@ Views now use the custom family like a built-in one:
 
 var body: some View {
   Rectangle()
-    .fill(theme.gradient(.gradientHero))
+    .fill(theme.gradient(.brandHero))
 }
 ```
 
@@ -146,6 +157,7 @@ Unregistered top-level keys remain opaque during runtime validation. A registrat
 
 - the root key exists and holds a keyed token dictionary;
 - aliases and names are non-empty;
+- grouped aliases are exactly `<group>/<name>`, with the first component matching `group`;
 - every token contains string `name` and `group` fields plus a non-empty `modes` dictionary;
 - the full dictionary decodes as the family's concrete token type;
 - the resolver selects a non-empty mode for the family;

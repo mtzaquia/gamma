@@ -1,50 +1,50 @@
 {
   "id": "gamma-sample",
   "defaults": {
-    "font": "font/body",
-    "primaryTextColor": "color/text-primary",
-    "secondaryTextColor": "color/accent"
+    "font": "typography/body",
+    "primaryTextColor": "text/primary",
+    "secondaryTextColor": "brand/accent"
   },
   "colors": {
-    "color/background": {
+    "surface/background": {
       "name": "Background",
-      "group": "Surface",
+      "group": "surface",
       "description": "App background",
       "modes": {
         "day": { "hex": "#F3F5FA", "alpha": 1 },
         "night": { "hex": "#111319", "alpha": 1 }
       }
     },
-    "color/surface": {
+    "surface/surface": {
       "name": "Surface",
-      "group": "Surface",
+      "group": "surface",
       "description": "Elevated surface",
       "modes": {
         "day": { "hex": "#FFFFFF", "alpha": 1 },
         "night": { "hex": "#20232C", "alpha": 1 }
       }
     },
-    "color/text-primary": {
+    "text/primary": {
       "name": "Primary text",
-      "group": "Text",
+      "group": "text",
       "description": "Primary foreground",
       "modes": {
         "day": { "hex": "#171A21", "alpha": 1 },
         "night": { "hex": "#F6F7FB", "alpha": 1 }
       }
     },
-    "color/text-secondary": {
+    "text/secondary": {
       "name": "Secondary text",
-      "group": "Text",
+      "group": "text",
       "description": "Secondary foreground",
       "modes": {
         "day": { "hex": "#626A7A", "alpha": 1 },
         "night": { "hex": "#AEB5C5", "alpha": 1 }
       }
     },
-    "color/accent": {
+    "brand/accent": {
       "name": "Accent",
-      "group": "Brand",
+      "group": "brand",
       "description": "Brand accent",
       "modes": {
         "day": { "hex": "#5B4CF0", "alpha": 1 },
@@ -53,9 +53,9 @@
     }
   },
   "fonts": {
-    "font/display": {
+    "typography/display": {
       "name": "Display",
-      "group": "Typography",
+      "group": "typography",
       "description": "ios:title1",
       "modes": {
         "latin": {
@@ -74,9 +74,9 @@
         }
       }
     },
-    "font/body": {
+    "typography/body": {
       "name": "Body",
-      "group": "Typography",
+      "group": "typography",
       "description": "ios:body",
       "modes": {
         "latin": {
@@ -95,9 +95,9 @@
         }
       }
     },
-    "font/caption": {
+    "typography/caption": {
       "name": "Caption",
-      "group": "Typography",
+      "group": "typography",
       "description": "ios:caption1",
       "modes": {
         "latin": {
@@ -118,27 +118,27 @@
     }
   },
   "units": {
-    "space/small": {
+    "spacing/small": {
       "name": "Small",
-      "group": "Spacing",
+      "group": "spacing",
       "description": "Small spacing",
       "modes": { "compact": 8, "regular": 12 }
     },
-    "space/medium": {
+    "spacing/medium": {
       "name": "Medium",
-      "group": "Spacing",
+      "group": "spacing",
       "description": "Medium spacing",
       "modes": { "compact": 16, "regular": 24 }
     },
-    "space/large": {
+    "spacing/large": {
       "name": "Large",
-      "group": "Spacing",
+      "group": "spacing",
       "description": "Large spacing",
       "modes": { "compact": 24, "regular": 36 }
     },
     "radius/card": {
       "name": "Card radius",
-      "group": "Radius",
+      "group": "radius",
       "description": "Card corner radius",
       "modes": { "compact": 20, "regular": 28 }
     }

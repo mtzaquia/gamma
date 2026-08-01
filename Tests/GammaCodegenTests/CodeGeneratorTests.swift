@@ -31,7 +31,7 @@ struct CodeGeneratorTests {
         try withTemporaryDirectory { directory in
             let input = directory.appendingPathComponent("theme.json")
             try writeTheme(
-                colors: ["1x/foo", "icon@2x", "class", "get", "quote\"and\\slash"],
+                colors: ["1x-foo", "icon@2x", "class", "get", "quote\"and\\slash"],
                 to: input
             )
 
@@ -40,11 +40,11 @@ struct CodeGeneratorTests {
                 template: .tokens
             ).source
 
-            #expect(source.contains("static let _1xFoo"))
-            #expect(source.contains("static let icon2x"))
-            #expect(source.contains("static let `class`"))
-            #expect(source.contains("static let `get`"))
-            #expect(source.contains(#"Self(rawValue: "quote\"and\\slash")"#))
+            #expect(source.contains("static var test1xFoo"))
+            #expect(source.contains("static var testIcon2x"))
+            #expect(source.contains("static var testClass"))
+            #expect(source.contains("static var testGet"))
+            #expect(source.contains(#"Self(rawValue: "test/quote\"and\\slash")"#))
         }
     }
 
@@ -109,9 +109,9 @@ struct CodeGeneratorTests {
             let input = directory.appendingPathComponent("theme.json")
             let document = validThemeDocument(
                 units: [
-                    "space/large": token(group: "Spacing"),
-                    "space/small": token(group: "Spacing"),
-                    "radius/card": token(group: "Radius"),
+                    "spacing/large": token(group: "spacing"),
+                    "spacing/small": token(group: "spacing"),
+                    "radius/card": token(group: "radius"),
                 ]
             )
             try JSONSerialization.data(withJSONObject: document, options: [.sortedKeys]).write(to: input)
@@ -120,9 +120,9 @@ struct CodeGeneratorTests {
             let second = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
             #expect(first == second)
-            #expect(first.contains("struct SpacingAlias: @MainActor UnitAlias"))
-            #expect(first.contains("static var spaceSmall"))
-            #expect(first.contains("struct RadiusAlias: @MainActor UnitAlias"))
+            #expect(first.contains("typealias SpacingAlias = Theme.Alias<SpacingGroup>"))
+            #expect(first.contains("static var spacingSmall"))
+            #expect(first.contains("typealias RadiusAlias = Theme.Alias<RadiusGroup>"))
         }
     }
 
@@ -131,14 +131,15 @@ struct CodeGeneratorTests {
         try withTemporaryDirectory { directory in
             let input = directory.appendingPathComponent("theme.json")
             let document = validThemeDocument(
-                units: ["value/default": token(group: "Self")]
+                units: ["self/default": token(group: "self")]
             )
             try JSONSerialization.data(withJSONObject: document).write(to: input)
 
             let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
-            #expect(source.contains("struct SelfAlias: @MainActor UnitAlias"))
-            #expect(source.contains("Self == Theme.SelfAlias"))
+            #expect(source.contains("nonisolated enum SelfGroup: ThemeTokenGroup"))
+            #expect(source.contains("typealias SelfAlias = Theme.Alias<SelfGroup>"))
+            #expect(source.contains("Scope == Theme.Units.SelfGroup"))
         }
     }
 
@@ -146,20 +147,63 @@ struct CodeGeneratorTests {
     func emptyTokenGroups() throws {
         try withTemporaryDirectory { directory in
             let input = directory.appendingPathComponent("theme.json")
-            let document = validThemeDocument(
-                units: ["space/default": token(group: "")],
+            var document = validThemeDocument(
+                units: ["unit": token(group: "")],
                 colorGroup: "",
                 fontGroup: ""
             )
+            var defaults = document["defaults"] as! [String: String]
+            defaults["font"] = "body"
+            document["defaults"] = defaults
+            var fonts = document["fonts"] as! [String: Any]
+            fonts["body"] = fonts.removeValue(forKey: "default")
+            document["fonts"] = fonts
             try write(document, to: input)
 
             let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
-            #expect(source.contains("static let colorDefault"))
-            #expect(source.contains("static let fontDefault"))
-            #expect(source.contains("public extension Theme.ColorAlias"))
-            #expect(source.contains("public extension Theme.FontAlias"))
-            #expect(!source.contains("struct SpacingAlias: UnitAlias"))
+            #expect(!source.contains("UngroupedAlias"))
+            #expect(!source.contains("UngroupedGroup"))
+            #expect(source.contains("Scope == Theme.Colors"))
+            #expect(source.contains("Scope == Theme.Fonts"))
+            #expect(source.contains("Scope == Theme.Units"))
+            #expect(source.contains(#"static var body: Self { Self(rawValue: "body") }"#))
+            #expect(source.contains(#"static var unit: Self { Self(rawValue: "unit") }"#))
+        }
+    }
+
+    @Test("Full-key accessor collisions fail across groups in one family")
+    func fullKeyAccessorCollisionsAcrossGroups() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let document = validThemeDocument(units: [
+                "a-b/c": token(group: "a-b"),
+                "a/b-c": token(group: "a"),
+            ])
+            try write(document, to: input)
+
+            #expect(throws: CodeGenerationError.self) {
+                try GammaCodeGenerator.generate(inputURL: input, template: .tokens)
+            }
+        }
+    }
+
+    @Test("Empty and named groups have distinct scopes")
+    func emptyAndNamedGroups() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let document = validThemeDocument(units: [
+                "empty": token(group: ""),
+                "general/named": token(group: "general"),
+            ])
+            try write(document, to: input)
+
+            let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
+
+            #expect(source.contains("Scope == Theme.Units"))
+            #expect(source.contains("typealias GeneralAlias = Theme.Alias<GeneralGroup>"))
+            #expect(source.contains("Scope == Theme.Units.GeneralGroup"))
+            #expect(!source.contains("Ungrouped"))
         }
     }
 
@@ -169,8 +213,8 @@ struct CodeGeneratorTests {
             let input = directory.appendingPathComponent("theme.json")
             let document = validThemeDocument(extensions: [
                 "gradients": [
-                    "gradient/hero": token(group: "Brand"),
-                    "something": token(group: "Brand"),
+                    "brand/hero": token(group: "brand"),
+                    "brand/something": token(group: "brand"),
                 ],
             ])
             try write(document, to: input)
@@ -179,49 +223,46 @@ struct CodeGeneratorTests {
 
             #expect(source.contains("nonisolated enum Gradients"))
             #expect(source.contains(#"nonisolated public static let key = "gradients""#))
-            #expect(source.contains("typealias GradientsAlias = ThemeExtensionAlias<Gradients>"))
-            #expect(source.contains("Extension == Theme.Gradients"))
-            #expect(source.contains(#"static var gradientHero: Self { Self(rawValue: "gradient/hero") }"#))
-            #expect(source.contains(#"static var something: Self { Self(rawValue: "something") }"#))
+            #expect(source.contains("nonisolated enum BrandGroup: ThemeTokenGroup"))
+            #expect(source.contains("typealias BrandAlias = Theme.Alias<BrandGroup>"))
+            #expect(source.contains("Scope == Theme.Gradients.BrandGroup"))
+            #expect(source.contains(#"static var brandHero: Self { Self(rawValue: "brand/hero") }"#))
+            #expect(source.contains(#"static var brandSomething: Self { Self(rawValue: "brand/something") }"#))
         }
     }
 
-    @Test("Accessor names may repeat across custom token families")
+    @Test("Full-key accessor names may repeat across custom token families")
     func customAccessorNamesAreScopedByFamily() throws {
         try withTemporaryDirectory { directory in
             let input = directory.appendingPathComponent("theme.json")
             let document = validThemeDocument(extensions: [
-                "gradients": ["shared": token(group: "Brand")],
-                "shadows": ["shared": token(group: "Elevation")],
+                "gradients": ["brand/shared": token(group: "brand")],
+                "shadows": ["brand/shared": token(group: "brand")],
             ])
             try write(document, to: input)
 
             let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
-            #expect(source.components(separatedBy: "static var shared").count - 1 == 2)
-            #expect(source.contains("Extension == Theme.Gradients"))
-            #expect(source.contains("Extension == Theme.Shadows"))
+            #expect(source.components(separatedBy: "static var brandShared").count - 1 == 2)
+            #expect(source.contains("Scope == Theme.Gradients.BrandGroup"))
+            #expect(source.contains("Scope == Theme.Shadows.BrandGroup"))
         }
     }
 
-    @Test("Custom family aliases cannot collide with other Theme nested types")
-    func customFamilyTypeCollision() throws {
+    @Test("Group names may repeat across token families")
+    func groupNamesAreScopedByFamily() throws {
         try withTemporaryDirectory { directory in
             let input = directory.appendingPathComponent("theme.json")
             let document = validThemeDocument(
-                units: ["space/default": token(group: "Gradients")],
-                extensions: ["gradients": ["hero": token(group: "Brand")]]
+                units: ["gradients/default": token(group: "gradients")],
+                extensions: ["gradients": ["brand/hero": token(group: "brand")]]
             )
             try write(document, to: input)
 
-            do {
-                _ = try GammaCodeGenerator.generate(inputURL: input, template: .tokens)
-                Issue.record("Expected nested Theme type collision to fail generation")
-            } catch {
-                #expect(error.localizedDescription.contains("GradientsAlias"))
-                #expect(error.localizedDescription.contains("unit group"))
-                #expect(error.localizedDescription.contains("extension alias"))
-            }
+            let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
+
+            #expect(source.contains("Theme.Units.GradientsAlias"))
+            #expect(source.contains("Theme.Gradients.BrandAlias"))
         }
     }
 
@@ -230,7 +271,7 @@ struct CodeGeneratorTests {
         try withTemporaryDirectory { directory in
             let input = directory.appendingPathComponent("theme.json")
             let document = validThemeDocument(extensions: [
-                "Colors": ["hero": token(group: "Brand")],
+                "Colors": ["brand/hero": token(group: "brand")],
             ])
             try write(document, to: input)
 
@@ -251,9 +292,9 @@ struct CodeGeneratorTests {
             let input = directory.appendingPathComponent("theme.json")
             let document = validThemeDocument(extensions: [
                 "gradients": [
-                    "gradient/hero": [
+                    "brand/hero": [
                         "name": "",
-                        "group": "Brand",
+                        "group": "brand",
                         "modes": ["light": [:]],
                     ],
                 ],
@@ -265,7 +306,7 @@ struct CodeGeneratorTests {
                 Issue.record("Expected custom token validation to fail generation")
             } catch {
                 #expect(error.localizedDescription.contains(input.path))
-                #expect(error.localizedDescription.contains("gradients.gradient/hero.name"))
+                #expect(error.localizedDescription.contains("gradients.brand/hero.name"))
             }
         }
     }
@@ -276,11 +317,11 @@ struct CodeGeneratorTests {
             let input = directory.appendingPathComponent("Broken.theme.json")
             var document = validThemeDocument()
             var colors = document["colors"] as! [String: Any]
-            var color = colors["color/default"] as! [String: Any]
+            var color = colors["test/default"] as! [String: Any]
             var modes = color["modes"] as! [String: Any]
             modes["light"] = ["hex": "broken", "alpha": 1]
             color["modes"] = modes
-            colors["color/default"] = color
+            colors["test/default"] = color
             document["colors"] = colors
             try write(document, to: input)
 
@@ -289,7 +330,7 @@ struct CodeGeneratorTests {
                 Issue.record("Expected schema validation to fail generation")
             } catch {
                 #expect(error.localizedDescription.contains(input.path))
-                #expect(error.localizedDescription.contains("colors.color/default.modes.light.hex"))
+                #expect(error.localizedDescription.contains("colors.test/default.modes.light.hex"))
             }
         }
     }
@@ -307,7 +348,7 @@ struct CodeGeneratorTests {
                 template: .tokens
             )
 
-            #expect(output.source.components(separatedBy: "static let colorDefault").count - 1 == 1)
+            #expect(output.source.components(separatedBy: #"Self(rawValue: "test/default")"#).count - 1 == 1)
             #expect(output.source.contains("static let day = Self(fileName: \"Day.theme.json\")"))
             #expect(output.source.contains("static let night = Self(fileName: \"Night.theme.json\")"))
         }
@@ -321,7 +362,7 @@ struct CodeGeneratorTests {
             try write(validThemeDocument(id: "brand-a"), to: first)
             var drifted = validThemeDocument(id: "brand-b")
             var colors = drifted["colors"] as! [String: Any]
-            colors["color/brand-only"] = colorToken()
+            colors["test/brand-only"] = colorToken()
             drifted["colors"] = colors
             try write(drifted, to: second)
 
@@ -334,7 +375,30 @@ struct CodeGeneratorTests {
             } catch {
                 #expect(error.localizedDescription.contains(first.path))
                 #expect(error.localizedDescription.contains(second.path))
-                #expect(error.localizedDescription.contains("color/brand-only"))
+                #expect(error.localizedDescription.contains("test/brand-only"))
+            }
+        }
+    }
+
+    @Test("Token key prefix must match its group exactly")
+    func tokenKeyPrefixMatchesGroup() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("Brand.theme.json")
+            var document = validThemeDocument()
+            var colors = document["colors"] as! [String: Any]
+            var color = colors["test/default"] as! [String: Any]
+            color["group"] = "surface"
+            colors["test/default"] = color
+            document["colors"] = colors
+            try write(document, to: input)
+
+            do {
+                _ = try GammaCodeGenerator.generate(inputURL: input, template: .tokens)
+                Issue.record("Expected mismatched token group to fail generation")
+            } catch {
+                #expect(error.localizedDescription.contains(input.path))
+                #expect(error.localizedDescription.contains("test/default.group"))
+                #expect(error.localizedDescription.contains(#"expected token key "surface"/<name>"#))
             }
         }
     }
@@ -346,13 +410,13 @@ struct CodeGeneratorTests {
             let second = directory.appendingPathComponent("Night.theme.json")
             try write(validThemeDocument(
                 id: "day",
-                extensions: ["gradients": ["gradient/hero": token(group: "Brand")]]
+                extensions: ["gradients": ["brand/hero": token(group: "brand")]]
             ), to: first)
             try write(validThemeDocument(
                 id: "night",
                 extensions: ["gradients": [
-                    "gradient/hero": token(group: "Brand"),
-                    "gradient/night-only": token(group: "Brand"),
+                    "brand/hero": token(group: "brand"),
+                    "brand/night-only": token(group: "brand"),
                 ]]
             ), to: second)
 
@@ -365,7 +429,7 @@ struct CodeGeneratorTests {
             } catch {
                 #expect(error.localizedDescription.contains(first.path))
                 #expect(error.localizedDescription.contains(second.path))
-                #expect(error.localizedDescription.contains("gradient/night-only"))
+                #expect(error.localizedDescription.contains("brand/night-only"))
                 #expect(error.localizedDescription.contains("gradients"))
             }
         }
@@ -396,7 +460,9 @@ struct CodeGeneratorTests {
     }
 
     private func writeTheme(colors: [String], to url: URL) throws {
-        let colorTokens = Dictionary(uniqueKeysWithValues: colors.map { ($0, colorToken()) })
+        let colorTokens = Dictionary(uniqueKeysWithValues: colors.map {
+            ("test/\($0)", colorToken())
+        })
         let document = validThemeDocument(colors: colorTokens)
         try JSONSerialization.data(withJSONObject: document, options: [.sortedKeys]).write(to: url)
     }
@@ -406,20 +472,22 @@ struct CodeGeneratorTests {
         colors: [String: Any] = [:],
         units: [String: Any]? = nil,
         extensions: [String: Any] = [:],
-        colorGroup: String = "Test",
-        fontGroup: String = "Typography"
+        colorGroup: String = "test",
+        fontGroup: String = "typography"
     ) -> [String: Any] {
         var colors = colors
-        colors["color/default"] = colorToken(group: colorGroup)
-        let units = units ?? ["space/default": token(group: "Spacing")]
+        let colorDefault = colorGroup.isEmpty ? "default" : "\(colorGroup)/default"
+        let fontDefault = fontGroup.isEmpty ? "default" : "\(fontGroup)/default"
+        colors[colorDefault] = colorToken(group: colorGroup)
+        let units = units ?? ["spacing/default": token(group: "spacing")]
         var document: [String: Any] = [
             "id": id,
             "defaults": [
-                "font": "font/default",
-                "primaryTextColor": "color/default",
+                "font": fontDefault,
+                "primaryTextColor": colorDefault,
             ],
             "colors": colors,
-            "fonts": ["font/default": fontToken(group: fontGroup)],
+            "fonts": [fontDefault: fontToken(group: fontGroup)],
             "units": units,
         ]
         for (key, value) in extensions {
@@ -428,7 +496,7 @@ struct CodeGeneratorTests {
         return document
     }
 
-    private func colorToken(group: String = "Test") -> [String: Any] {
+    private func colorToken(group: String = "test") -> [String: Any] {
         token(
             group: group,
             modes: [
@@ -438,7 +506,7 @@ struct CodeGeneratorTests {
         )
     }
 
-    private func fontToken(group: String = "Typography") -> [String: Any] {
+    private func fontToken(group: String = "typography") -> [String: Any] {
         token(
             group: group,
             modes: [

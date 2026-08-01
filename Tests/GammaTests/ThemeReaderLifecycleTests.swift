@@ -143,9 +143,9 @@ struct ThemeReaderLifecycleTests {
         """
         {
           "id": "live-theme",
-          "defaults": { "font": "body", "primaryTextColor": "text" },
+          "defaults": { "font": "typography/body", "primaryTextColor": "content/text" },
           "colors": {
-            "text": {
+            "content/text": {
               "name": "Text", "group": "content", "description": "",
               "modes": {
                 "day": { "hex": "#000000", "alpha": 1 },
@@ -154,7 +154,7 @@ struct ThemeReaderLifecycleTests {
             }
           },
           "fonts": {
-            "body": {
+            "typography/body": {
               "name": "Body", "group": "typography", "description": "ios:body",
               "modes": {
                 "latin": {
@@ -169,7 +169,7 @@ struct ThemeReaderLifecycleTests {
             }
           },
           "units": {
-            "spacing": {
+            "spacing/default": {
               "name": "Spacing", "group": "spacing", "description": "",
               "modes": { "compact": \(compactUnit), "regular": 24 }
             }
@@ -214,9 +214,9 @@ private struct LifecycleProbe: View {
     let onResolve: (LifecycleObservation) -> Void
 
     var body: some View {
-        let color = theme.color(.init(rawValue: "text"))
-        let font = theme.font(.init(rawValue: "body"))
-        let unit = theme.unit(LifecycleUnitAlias(rawValue: "spacing"))
+        let color = theme.color(LifecycleColorAlias(rawValue: "content/text"))
+        let font = theme.font(LifecycleFontAlias(rawValue: "typography/body"))
+        let unit = theme.unit(LifecycleUnitAlias(rawValue: "spacing/default"))
         let uiColor = UIColor(color)
         let light = uiColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
         let dark = uiColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
@@ -277,9 +277,26 @@ nonisolated private final class ResolutionCounter: @unchecked Sendable, Hashable
     }
 }
 
-private struct LifecycleUnitAlias: UnitAlias {
-    let rawValue: String
+nonisolated private enum LifecycleColorGroup: ThemeTokenGroup {
+    typealias Family = Theme.Colors
+    static let name = "content"
 }
+
+private typealias LifecycleColorAlias = Theme.Alias<LifecycleColorGroup>
+
+nonisolated private enum LifecycleFontGroup: ThemeTokenGroup {
+    typealias Family = Theme.Fonts
+    static let name = "typography"
+}
+
+private typealias LifecycleFontAlias = Theme.Alias<LifecycleFontGroup>
+
+nonisolated private enum LifecycleUnitGroup: ThemeTokenGroup {
+    typealias Family = Theme.Units
+    static let name = "spacing"
+}
+
+private typealias LifecycleUnitAlias = Theme.Alias<LifecycleUnitGroup>
 
 private extension UIColor {
     var rgba: (white: CGFloat, alpha: CGFloat) {

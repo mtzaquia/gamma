@@ -9,10 +9,10 @@ struct Card: View {
   var body: some View {
     VStack(alignment: .leading) {
       DSText("Card title")
-        .font(theme.font(.fontBody))
+        .font(theme.font(.typographyBody))
     }
-      .padding(theme.unit(.spaceMedium))
-      .background(theme.color(.colorSurface))
+      .padding(theme.unit(.spacingMedium))
+      .background(theme.color(.surfaceSurface))
       .clipShape(
         RoundedRectangle(cornerRadius: theme.unit(.radiusCard))
       )
@@ -20,9 +20,86 @@ struct Card: View {
 }
 ```
 
-Generated aliases are plain, typed token names. They keep raw theme keys out of view code while preserving the token kind.
+Generated aliases are typed by both their value family and semantic group. They keep raw theme keys out of view code while letting a component distinguish, for example, spacing from radius even though both resolve to `CGFloat`.
 
 Consumer-defined families can use the same alias-to-value pattern through a small app-owned proxy extension. See [Theme extensions](theme-extensions.md).
+
+## Restrict component token parameters
+
+Every non-empty group generates an alias nested under its family. A component can require those generated types while Gamma's resolver remains generic across all groups in the family:
+
+```swift
+struct TokenCard<Content: View>: View {
+  @ThemeReader private var theme
+
+  let background: Theme.Colors.SurfaceAlias
+  let foreground: Theme.Colors.TextAlias
+  let font: Theme.Fonts.TypographyAlias
+  let padding: Theme.Units.SpacingAlias
+  let cornerRadius: Theme.Units.RadiusAlias
+  @ViewBuilder let content: Content
+
+  init(
+    background: Theme.Colors.SurfaceAlias,
+    foreground: Theme.Colors.TextAlias,
+    font: Theme.Fonts.TypographyAlias,
+    padding: Theme.Units.SpacingAlias,
+    cornerRadius: Theme.Units.RadiusAlias,
+    @ViewBuilder content: () -> Content
+  ) {
+    self.background = background
+    self.foreground = foreground
+    self.font = font
+    self.padding = padding
+    self.cornerRadius = cornerRadius
+    self.content = content()
+  }
+
+  var body: some View {
+    content
+      .font(theme.font(font))
+      .foregroundStyle(theme.color(foreground))
+      .padding(theme.unit(padding))
+      .background(theme.color(background))
+      .clipShape(
+        RoundedRectangle(cornerRadius: theme.unit(cornerRadius))
+      )
+  }
+}
+```
+
+Consumer code passes ordinary generated members:
+
+```swift
+TokenCard(
+  background: .surfaceSurface,
+  foreground: .textPrimary,
+  font: .typographyBody,
+  padding: .spacingMedium,
+  cornerRadius: .radiusCard
+) {
+  Text("Account")
+}
+```
+
+Both `.spacingMedium` and `.radiusCard` resolve through `theme.unit(...)`, but exchanging them in this initializer is a compile-time error. The group restricts the component contract; the owning family selects the resolver and output type. Keeping the group in the accessor also disambiguates direct calls when, for example, both `spacing/medium` and `size/medium` exist.
+
+An empty `group` produces no artificial group type. Its accessors use the family scope. For example, a font token keyed by `body` with `group: ""` generates `.body` on `Theme.Alias<Theme.Fonts>`:
+
+```swift
+let body: Theme.Alias<Theme.Fonts> = .body
+```
+
+Aliases are also `Codable` and decode from a plain token-key string:
+
+```swift
+let alias = try JSONDecoder().decode(
+  Theme.Alias<Theme.Colors>.self,
+  from: Data(#""legacy""#.utf8)
+)
+```
+
+The complete string is the token key. Grouped aliases decode from ordinary strings such as `"text/primary"`; `tokenGroup` and `tokenName` expose the two components. The schema requires that the first component exactly match the token's `group` field. An empty group uses a slash-free key such as `"legacy"` and remains on the family scope rather than receiving an artificial `UngroupedAlias`.
 
 ## Colors
 
@@ -30,7 +107,7 @@ Consumer-defined families can use the same alias-to-value pattern through a smal
 
 ```swift
 Text("Account")
-  .foregroundStyle(theme.color(.colorTextPrimary))
+  .foregroundStyle(theme.color(.textPrimary))
 ```
 
 ## Typography
@@ -39,7 +116,7 @@ Text("Account")
 
 ```swift
 DSText("Readable at every size")
-  .font(theme.font(.fontBody))
+  .font(theme.font(.typographyBody))
 ```
 
 The modifier applies:
@@ -58,11 +135,11 @@ Use `DSText` when single-line text should occupy at least the token's scaled lin
 @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
 private var bodyUIFont: UIFont {
-  theme.font(.fontBody).uiFont(for: dynamicTypeSize)
+  theme.font(.typographyBody).uiFont(for: dynamicTypeSize)
 }
 
 private var bodyAttributes: AttributeContainer {
-  theme.font(.fontBody).attributes(for: dynamicTypeSize)
+  theme.font(.typographyBody).attributes(for: dynamicTypeSize)
 }
 ```
 
@@ -150,16 +227,16 @@ The generated aliases still come from build inputs. A server theme must preserve
 
 ## Units
 
-`theme.unit(...)` resolves any `UnitAlias` to a `CGFloat` using the selected unit mode.
+`theme.unit(...)` resolves an alias from any group owned by `Theme.Units` to a `CGFloat` using the selected unit mode.
 
 ```swift
-VStack(spacing: theme.unit(.spaceSmall)) {
+VStack(spacing: theme.unit(.spacingSmall)) {
   content
 }
-.padding(theme.unit(.spaceLarge))
+.padding(theme.unit(.spacingLarge))
 ```
 
-Unit groups are separate types. `Spacing` and `Radius`, for example, generate `Theme.SpacingAlias` and `Theme.RadiusAlias`. Swift type inference chooses the right group from `.spaceSmall` or `.radiusCard`.
+Unit groups are separate alias scopes. `spacing` and `radius`, for example, generate `Theme.Units.SpacingAlias` and `Theme.Units.RadiusAlias`. Their full-key members, such as `.spacingSmall` and `.radiusCard`, remain unambiguous even when passed directly to the family-wide `theme.unit(...)` resolver.
 
 ## Assets
 

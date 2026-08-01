@@ -5,7 +5,7 @@ Use `WithThemeOverrides` to replace selected token modes inside one view subtree
 ```swift
 let campaignOverrides = RawThemeOverrides(
   colors: [
-    "color/accent": [
+    "brand/accent": [
       "day": RawColor.Mode(hex: "#B42318", alpha: 1),
       "night": RawColor.Mode(hex: "#FDA29B", alpha: 1),
     ],
@@ -17,7 +17,7 @@ WithThemeOverrides(overrides: campaignOverrides) {
 }
 ```
 
-Every view below `WithThemeOverrides` resolves `color/accent` from the replacement modes. Siblings and ancestors continue to use the base theme.
+Every view below `WithThemeOverrides` resolves `brand/accent` from the replacement modes. Siblings and ancestors continue to use the base theme.
 
 ## Override fonts and units
 
@@ -27,7 +27,7 @@ The same scope can replace colors, fonts, and units together. `RawFont.Mode` is 
 {
   "colors": {},
   "fonts": {
-    "font/display": {
+    "typography/display": {
       "latin": {
         "fontSize": 34,
         "fontName": "CampaignDisplay-Regular",

@@ -25,12 +25,23 @@ import SwiftUI
 import Testing
 import Gamma
 
-public extension Theme.ColorAlias {
-    static let compatibilityColor = Self(rawValue: "color/compatibility")
+nonisolated private enum CompatibilityColorGroup: ThemeTokenGroup {
+    typealias Family = Theme.Colors
+    static let name = "compatibility"
 }
 
-public extension Theme.FontAlias {
-    static let compatibilityFont = Self(rawValue: "font/compatibility")
+nonisolated private enum CompatibilityFontGroup: ThemeTokenGroup {
+    typealias Family = Theme.Fonts
+    static let name = "compatibility"
+}
+
+private typealias CompatibilityColorAlias = Theme.Alias<CompatibilityColorGroup>
+private typealias CompatibilityFontAlias = Theme.Alias<CompatibilityFontGroup>
+
+public extension Theme.Alias where Scope == Theme.Colors {
+    static var compatibilityFamilyColor: Self {
+        Self(rawValue: "compatibility/family-color")
+    }
 }
 
 private struct CompatibilityModeResolver: ThemeModeResolving {
@@ -59,12 +70,35 @@ private func legacyResourceModifier(_ resource: ThemeResource) -> some View {
     )
 }
 
-@Suite("Public API compatibility")
+@Suite("Public API contracts")
 struct PublicAPICompatibilityTests {
-    @Test("Original alias declarations remain extensible nominal types")
-    func aliasesRemainExtensible() {
-        #expect(Theme.ColorAlias.compatibilityColor.rawValue == "color/compatibility")
-        #expect(Theme.FontAlias.compatibilityFont.rawValue == "font/compatibility")
+    @Test("Alias groups retain their family and raw token key")
+    func aliasesRetainGroupAndFamily() {
+        let color = CompatibilityColorAlias(rawValue: "compatibility/color")
+        let font = CompatibilityFontAlias(rawValue: "compatibility/font")
+        let familyColor: Theme.Alias<Theme.Colors> = .compatibilityFamilyColor
+
+        #expect(color.rawValue == "compatibility/color")
+        #expect(font.rawValue == "compatibility/font")
+        #expect(CompatibilityColorAlias.AliasScope.name == "compatibility")
+        #expect(CompatibilityFontAlias.AliasScope.name == "compatibility")
+        #expect(familyColor.rawValue == "compatibility/family-color")
+    }
+
+    @Test("Aliases decode from and encode to a plain token-key string")
+    func aliasesAreSingleValueCodable() throws {
+        let alias = try JSONDecoder().decode(
+            Theme.Alias<Theme.Colors>.self,
+            from: Data(#""foo/bar""#.utf8)
+        )
+        let encoded = try JSONEncoder().encode(alias)
+        let encodedRawValue = try JSONDecoder().decode(String.self, from: encoded)
+
+        #expect(alias.rawValue == "foo/bar")
+        #expect(alias.tokenGroup == "foo")
+        #expect(alias.tokenName == "bar")
+        #expect(encodedRawValue == "foo/bar")
+        #expect(Theme.Colors.groupName == nil)
     }
 
     @Test("Original mode initializer and properties bridge to family selections")

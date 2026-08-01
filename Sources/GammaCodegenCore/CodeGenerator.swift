@@ -143,8 +143,25 @@ private extension GammaCodeGenerator {
                         debugDescription: "Extension token keys must not be empty"
                     )
                 }
+                for (alias, token) in tokens {
+                    guard Self.tokenIdentityIsValid(alias: alias, group: token.group) else {
+                        throw DecodingError.dataCorruptedError(
+                            forKey: key,
+                            in: rootContainer,
+                            debugDescription: token.group.isEmpty
+                                ? "Extension token \(alias.debugDescription) has an empty group and must use a single-component key"
+                                : "Extension token \(alias.debugDescription) must use key \(token.group.debugDescription)/<name>"
+                        )
+                    }
+                }
                 extensions[key.stringValue] = tokens
             }
+        }
+
+        private static func tokenIdentityIsValid(alias: String, group: String) -> Bool {
+            if group.isEmpty { return !alias.contains("/") }
+            let components = alias.split(separator: "/", omittingEmptySubsequences: false)
+            return components.count == 2 && components[0] == group && !components[1].isEmpty
         }
 
         private static let reservedKeys = Set([
@@ -153,48 +170,28 @@ private extension GammaCodeGenerator {
     }
 
     struct TokenContract {
-        struct UnitAlias: Hashable {
+        struct Alias: Hashable {
             let key: String
             let group: String
         }
 
-        let colors: Set<String>
-        let fonts: Set<String>
-        let units: Set<UnitAlias>
-        let extensions: [String: Set<String>]
+        let colors: Set<Alias>
+        let fonts: Set<Alias>
+        let units: Set<Alias>
+        let extensions: [String: Set<Alias>]
 
         init(document: ThemeDocument) {
-            colors = Set(document.colors.keys)
-            fonts = Set(document.fonts.keys)
-            units = Set(document.units.map { key, token in
-                UnitAlias(key: key, group: token.group)
-            })
-            extensions = document.extensions.mapValues { Set($0.keys) }
+            colors = Self.aliases(document.colors)
+            fonts = Self.aliases(document.fonts)
+            units = Self.aliases(document.units)
+            extensions = document.extensions.mapValues(Self.aliases)
         }
 
         func differences(from reference: Self) -> [String] {
             var differences: [String] = []
-            differences.append(contentsOf: setDifferences(kind: "color", values: colors, reference: reference.colors))
-            differences.append(contentsOf: setDifferences(kind: "font", values: fonts, reference: reference.fonts))
-
-            let unitKeys = Set(units.map(\.key))
-            let referenceUnitKeys = Set(reference.units.map(\.key))
-            differences.append(contentsOf: setDifferences(
-                kind: "unit",
-                values: unitKeys,
-                reference: referenceUnitKeys
-            ))
-
-            let groups = Dictionary(uniqueKeysWithValues: units.map { ($0.key, $0.group) })
-            let referenceGroups = Dictionary(uniqueKeysWithValues: reference.units.map { ($0.key, $0.group) })
-            for key in unitKeys.intersection(referenceUnitKeys).sorted()
-            where groups[key] != referenceGroups[key] {
-                differences.append(
-                    "unit \(key.debugDescription) moved from group "
-                        + "\(referenceGroups[key, default: ""].debugDescription) to "
-                        + groups[key, default: ""].debugDescription
-                )
-            }
+            differences.append(contentsOf: aliasDifferences(kind: "color", values: colors, reference: reference.colors))
+            differences.append(contentsOf: aliasDifferences(kind: "font", values: fonts, reference: reference.fonts))
+            differences.append(contentsOf: aliasDifferences(kind: "unit", values: units, reference: reference.units))
 
             differences.append(contentsOf: setDifferences(
                 kind: "extension family",
@@ -202,13 +199,40 @@ private extension GammaCodeGenerator {
                 reference: Set(reference.extensions.keys)
             ))
             for family in Set(extensions.keys).intersection(reference.extensions.keys).sorted() {
-                differences.append(contentsOf: setDifferences(
+                differences.append(contentsOf: aliasDifferences(
                     kind: "extension \(family.debugDescription)",
                     values: extensions[family, default: []],
                     reference: reference.extensions[family, default: []]
                 ))
             }
             return differences
+        }
+
+        private static func aliases<TokenValue>(_ tokens: [String: TokenValue]) -> Set<Alias>
+        where TokenValue: GroupedToken {
+            Set(tokens.map { key, token in Alias(key: key, group: token.group) })
+        }
+
+        private func aliasDifferences(
+            kind: String,
+            values: Set<Alias>,
+            reference: Set<Alias>
+        ) -> [String] {
+            let keys = Set(values.map(\.key))
+            let referenceKeys = Set(reference.map(\.key))
+            var result = setDifferences(kind: kind, values: keys, reference: referenceKeys)
+
+            let groups = Dictionary(uniqueKeysWithValues: values.map { ($0.key, $0.group) })
+            let referenceGroups = Dictionary(uniqueKeysWithValues: reference.map { ($0.key, $0.group) })
+            for key in keys.intersection(referenceKeys).sorted()
+            where groups[key] != referenceGroups[key] {
+                result.append(
+                    "\(kind) \(key.debugDescription) moved from group "
+                        + "\(referenceGroups[key, default: ""].debugDescription) to "
+                        + groups[key, default: ""].debugDescription
+                )
+            }
+            return result
         }
 
         private func setDifferences(
@@ -229,12 +253,17 @@ private extension GammaCodeGenerator {
         }
     }
 
-    struct Token {
+    protocol GroupedToken {
+        var group: String { get }
+    }
+
+    struct Token: GroupedToken {
         let group: String
         let description: String
     }
 
-    struct ExtensionToken: Decodable {
+    struct ExtensionToken: Decodable, GroupedToken {
+        let group: String
         let description: String?
 
         private enum CodingKeys: String, CodingKey {
@@ -244,7 +273,7 @@ private extension GammaCodeGenerator {
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let name = try container.decode(String.self, forKey: .name)
-            _ = try container.decode(String.self, forKey: .group)
+            group = try container.decode(String.self, forKey: .group)
             description = try container.decodeIfPresent(String.self, forKey: .description)
             let modes = try container.decode([String: ThemeJSONValue].self, forKey: .modes)
 
@@ -274,12 +303,8 @@ private extension GammaCodeGenerator {
 
     struct TokenAccessorDeclaration {
         let key: String
+        let group: String
         let description: String?
-    }
-
-    enum TokenAccessorImplementation {
-        case stored
-        case computed
     }
 
     struct Asset: Decodable {
@@ -463,27 +488,30 @@ private extension GammaCodeGenerator {
     ) throws -> String {
         let document = documents[0].document
         try validateThemeResourceCollisions(documents.map(\.url))
-        try validateCollisions(scope: "color aliases", sources: Array(document.colors.keys), transform: tokenAccessor)
-        try validateCollisions(scope: "font aliases", sources: Array(document.fonts.keys), transform: tokenAccessor)
+        try validateThemeTypeCollisions(extensionFamilies: Array(document.extensions.keys))
 
-        let groupedUnits = Dictionary(grouping: document.units) { $0.value.group }
-            .filter { !$0.key.isEmpty }
-        try validateThemeTypeCollisions(
-            unitGroups: Array(groupedUnits.keys),
-            extensionFamilies: Array(document.extensions.keys)
-        )
-        for (group, units) in groupedUnits {
-            try validateCollisions(
-                scope: "unit aliases in group \(group.debugDescription)",
-                sources: units.map(\.key),
-                transform: tokenAccessor
-            )
+        let colors = document.colors.map {
+            TokenAccessorDeclaration(key: $0.key, group: $0.value.group, description: $0.value.description)
         }
+        let fonts = document.fonts.map {
+            TokenAccessorDeclaration(key: $0.key, group: $0.value.group, description: $0.value.description)
+        }
+        let units = document.units.map {
+            TokenAccessorDeclaration(key: $0.key, group: $0.value.group, description: $0.value.description)
+        }
+        try validateAliasGroups(family: "colors", tokens: colors)
+        try validateAliasGroups(family: "fonts", tokens: fonts)
+        try validateAliasGroups(family: "units", tokens: units)
         for (family, tokens) in document.extensions {
-            try validateCollisions(
-                scope: "extension aliases in family \(family.debugDescription)",
-                sources: Array(tokens.keys),
-                transform: tokenAccessor
+            try validateAliasGroups(
+                family: family,
+                tokens: tokens.map {
+                    TokenAccessorDeclaration(
+                        key: $0.key,
+                        group: $0.value.group,
+                        description: $0.value.description
+                    )
+                }
             )
         }
 
@@ -504,48 +532,14 @@ private extension GammaCodeGenerator {
                 )
             }
         }
-        try renderTokenAccessors(
-            aliasType: "ColorAlias",
-            extensionDeclaration: "public extension Theme.ColorAlias",
-            tokens: document.colors.map { .init(key: $0.key, description: $0.value.description) },
-            writer: &writer,
-            implementation: .stored
-        )
-        try renderTokenAccessors(
-            aliasType: "FontAlias",
-            extensionDeclaration: "public extension Theme.FontAlias",
-            tokens: document.fonts.map { .init(key: $0.key, description: $0.value.description) },
-            writer: &writer,
-            implementation: .stored
-        )
-
-        for group in groupedUnits.keys.sorted() {
-            let typeName = try groupAliasName(group)
-            writer.blankLine()
-            writer.line("// MARK: - Theme.\(typeName)")
-            writer.blankLine()
-            writer.block("public extension Theme") { writer in
-                writer.block("struct \(typeName): @MainActor UnitAlias") { writer in
-                    writer.line("public var rawValue: String")
-                    writer.block("public init(rawValue: String)") { writer in
-                        writer.line("self.rawValue = rawValue")
-                    }
-                }
-            }
-            writer.blankLine()
-            try writer.block("public extension UnitAlias where Self == Theme.\(typeName)") { writer in
-                for (key, token) in groupedUnits[group, default: []].sorted(by: { $0.key < $1.key }) {
-                    writer.docComment(description: token.description, key: key)
-                    writer.line("static var \(try tokenAccessor(key)): Self { Self(rawValue: \(swiftStringLiteral(key))) }")
-                }
-            }
-        }
+        try renderAliasGroups(familyType: "Colors", tokens: colors, writer: &writer)
+        try renderAliasGroups(familyType: "Fonts", tokens: fonts, writer: &writer)
+        try renderAliasGroups(familyType: "Units", tokens: units, writer: &writer)
 
         for family in document.extensions.keys.sorted() {
             let familyType = try extensionFamilyName(family)
-            let aliasType = try groupAliasName(family)
             writer.blankLine()
-            writer.line("// MARK: - Theme.\(aliasType)")
+            writer.line("// MARK: - Theme.\(familyType)")
             writer.blankLine()
             writer.block("public extension Theme") { writer in
                 writer.line("/// Identifies custom tokens under the \(swiftStringLiteral(family)) theme key.")
@@ -553,19 +547,17 @@ private extension GammaCodeGenerator {
                     writer.line("/// The top-level JSON key for this token family.")
                     writer.line("nonisolated public static let key = \(swiftStringLiteral(family))")
                 }
-                writer.blankLine()
-                writer.line("/// A typed alias for tokens in the \(swiftStringLiteral(family)) family.")
-                writer.line("typealias \(aliasType) = ThemeExtensionAlias<\(familyType)>")
             }
-            try renderTokenAccessors(
-                aliasType: aliasType,
-                extensionDeclaration: "public extension ThemeExtensionAlias "
-                    + "where Extension == Theme.\(familyType)",
+            try renderAliasGroups(
+                familyType: familyType,
                 tokens: document.extensions[family, default: [:]].map {
-                    .init(key: $0.key, description: $0.value.description)
+                    TokenAccessorDeclaration(
+                        key: $0.key,
+                        group: $0.value.group,
+                        description: $0.value.description
+                    )
                 },
-                writer: &writer,
-                includeMark: false
+                writer: &writer
             )
         }
 
@@ -574,29 +566,57 @@ private extension GammaCodeGenerator {
         return writer.source
     }
 
-    static func renderTokenAccessors(
-        aliasType: String,
-        extensionDeclaration: String,
+    static func renderAliasGroups(
+        familyType: String,
         tokens: [TokenAccessorDeclaration],
-        writer: inout SourceWriter,
-        includeMark: Bool = true,
-        implementation: TokenAccessorImplementation = .computed
+        writer: inout SourceWriter
     ) throws {
-        writer.blankLine()
-        if includeMark {
-            writer.line("// MARK: - Theme.\(aliasType)")
+        let groups = Dictionary(grouping: tokens, by: \.group)
+        for group in groups.keys.sorted() {
+            if group.isEmpty {
+                writer.blankLine()
+                writer.line("// MARK: - Theme.\(familyType) aliases without a group")
+                writer.blankLine()
+                try writer.block(
+                    "public extension Theme.Alias where Scope == Theme.\(familyType)"
+                ) { writer in
+                    for token in groups[group, default: []].sorted(by: { $0.key < $1.key }) {
+                        writer.docComment(description: token.description, key: token.key)
+                        writer.line(
+                            "static var \(try tokenAccessor(token.key)): Self { "
+                                + "Self(rawValue: \(swiftStringLiteral(token.key))) }"
+                        )
+                    }
+                }
+                continue
+            }
+
+            let stem = try groupTypeStem(group)
+            let markerType = stem + "Group"
+            let aliasType = stem + "Alias"
             writer.blankLine()
-        }
-        try writer.block(extensionDeclaration) { writer in
-            for token in tokens.sorted(by: { $0.key < $1.key }) {
-                writer.docComment(description: token.description, key: token.key)
-                let accessor = try tokenAccessor(token.key)
-                let rawValue = swiftStringLiteral(token.key)
-                switch implementation {
-                case .stored:
-                    writer.line("static let \(accessor) = Self(rawValue: \(rawValue))")
-                case .computed:
-                    writer.line("static var \(accessor): Self { Self(rawValue: \(rawValue)) }")
+            writer.line("// MARK: - Theme.\(familyType).\(aliasType)")
+            writer.blankLine()
+            writer.block("public extension Theme.\(familyType)") { writer in
+                writer.line("/// Identifies tokens in the \(swiftStringLiteral(group)) group.")
+                writer.block("nonisolated enum \(markerType): ThemeTokenGroup") { writer in
+                    writer.line("public typealias Family = Theme.\(familyType)")
+                    writer.line("nonisolated public static let name = \(swiftStringLiteral(group))")
+                }
+                writer.blankLine()
+                writer.line("/// An alias for a token in the \(group) group.")
+                writer.line("typealias \(aliasType) = Theme.Alias<\(markerType)>")
+            }
+            writer.blankLine()
+            try writer.block(
+                "public extension Theme.Alias where Scope == Theme.\(familyType).\(markerType)"
+            ) { writer in
+                for token in groups[group, default: []].sorted(by: { $0.key < $1.key }) {
+                    writer.docComment(description: token.description, key: token.key)
+                    writer.line(
+                        "static var \(try tokenAccessor(token.key)): Self { "
+                            + "Self(rawValue: \(swiftStringLiteral(token.key))) }"
+                    )
                 }
             }
         }
@@ -619,29 +639,36 @@ private extension GammaCodeGenerator {
         }
     }
 
-    static func validateThemeTypeCollisions(
-        unitGroups: [String],
-        extensionFamilies: [String]
+    static func validateAliasGroups(
+        family: String,
+        tokens: [TokenAccessorDeclaration]
     ) throws {
+        let groups = Dictionary(grouping: tokens, by: \.group)
+        try validateCollisions(
+            scope: "alias groups in family \(family.debugDescription)",
+            sources: groups.keys.filter { !$0.isEmpty },
+            transform: groupTypeStem
+        )
+        try validateCollisions(
+            scope: "aliases in family \(family.debugDescription)",
+            sources: tokens.map(\.key),
+            transform: tokenAccessor
+        )
+    }
+
+    static func validateThemeTypeCollisions(extensionFamilies: [String]) throws {
         var generated: [String: [String]] = [
+            "Alias": ["built-in Theme.Alias"],
             "AssetAlias": ["built-in Theme.AssetAlias"],
-            "ColorAlias": ["built-in Theme.ColorAlias"],
             "Colors": ["built-in Theme.Colors"],
-            "FontAlias": ["built-in Theme.FontAlias"],
             "Fonts": ["built-in Theme.Fonts"],
             "IconAlias": ["built-in Theme.IconAlias"],
             "Units": ["built-in Theme.Units"],
         ]
 
-        for group in unitGroups.sorted() {
-            generated[try groupAliasName(group), default: []]
-                .append("unit group \(group.debugDescription)")
-        }
         for family in extensionFamilies.sorted() {
             generated[try extensionFamilyName(family), default: []]
                 .append("extension family \(family.debugDescription)")
-            generated[try groupAliasName(family), default: []]
-                .append("extension alias for \(family.debugDescription)")
         }
 
         if let collision = generated
@@ -729,8 +756,8 @@ private extension GammaCodeGenerator {
         escapeReservedKeyword(lowerFirst(try swiftIdentifier(source)))
     }
 
-    static func groupAliasName(_ source: String) throws -> String {
-        escapeReservedKeyword(upperFirst(try swiftIdentifier(source)) + "Alias")
+    static func groupTypeStem(_ source: String) throws -> String {
+        upperFirst(try swiftIdentifier(source))
     }
 
     static func extensionFamilyName(_ source: String) throws -> String {

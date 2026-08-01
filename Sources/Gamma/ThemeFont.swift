@@ -26,7 +26,7 @@ import SwiftUI
 ///
 /// `ThemeFont` carries the font name, size, line height, letter spacing, and
 /// text case for a single design token. Obtain one through ``ThemeReader``:
-/// `theme.font(.fontBody)`.
+/// `theme.font(.typographyBody)`.
 public struct ThemeFont: Hashable {
     private let fontName: String
     private let cascadeFontNames: [String]
