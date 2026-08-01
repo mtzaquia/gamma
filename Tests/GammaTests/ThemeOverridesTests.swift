@@ -140,6 +140,22 @@ struct ThemeOverridesTests {
                 == "[override] ✓ applied | theme=sample colors=1 fonts=2 units=3 extensions=4"
         )
     }
+
+    @Test("Override validation diagnostics identify the derived theme scope")
+    func overrideValidationDiagnosticIdentifiesDerivedTheme() {
+        let event = GammaLogEvent.overridesValidated(
+            themeID: "sample",
+            colors: 1,
+            fonts: 2,
+            units: 3
+        )
+
+        #expect(event.logLevel == .trace)
+        #expect(
+            event.message
+                == "[override] ✓ validated | theme=sample colors=1 fonts=2 units=3"
+        )
+    }
 }
 
 nonisolated private enum OverrideSurfaceGroup: ThemeTokenGroup {

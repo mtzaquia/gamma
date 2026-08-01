@@ -203,7 +203,8 @@ public struct WithThemeOverrides<Content: View>: View {
                     theme,
                     modes: modes,
                     extensions: themeExtensions,
-                    additionalIssues: issues
+                    additionalIssues: issues,
+                    isOverride: true
                 )
                 ThemeDiagnostics.overridesApplied(theme, overrides: overrides)
             }

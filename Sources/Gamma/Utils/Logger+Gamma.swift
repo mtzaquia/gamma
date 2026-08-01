@@ -45,7 +45,7 @@ public enum Gamma {
 }
 
 nonisolated let gammaLog = Logger(
-    subsystem: "dev.gamma",
+    subsystem: "eu.lelfe.gamma",
     category: "Gamma"
 )
 
@@ -53,11 +53,12 @@ enum GammaLogEvent {
     case fontRegistered(fileName: String, postScriptName: String)
     case overridesApplied(themeID: String, colors: Int, fonts: Int, units: Int, extensions: Int)
     case themeValidated(themeID: String, colors: Int, fonts: Int, units: Int)
+    case overridesValidated(themeID: String, colors: Int, fonts: Int, units: Int)
 
     var logLevel: Gamma.DebugLogLevel {
         switch self {
         case .overridesApplied: .normal
-        case .fontRegistered, .themeValidated: .trace
+        case .fontRegistered, .themeValidated, .overridesValidated: .trace
         }
     }
 
@@ -69,6 +70,8 @@ enum GammaLogEvent {
             "[override] ✓ applied | theme=\(themeID) colors=\(colors) fonts=\(fonts) units=\(units) extensions=\(extensions)"
         case let .themeValidated(themeID, colors, fonts, units):
             "[theme] ✓ validated | id=\(themeID) colors=\(colors) fonts=\(fonts) units=\(units)"
+        case let .overridesValidated(themeID, colors, fonts, units):
+            "[override] ✓ validated | theme=\(themeID) colors=\(colors) fonts=\(fonts) units=\(units)"
         }
     }
 }

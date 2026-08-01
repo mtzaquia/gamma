@@ -72,8 +72,10 @@ struct ExampleApp: App {
 | `.normal` | Theme override activity. |
 | `.trace` | Normal logs plus successful theme validation and font registration. |
 
-Logs use the `dev.gamma` subsystem and `Gamma` category.
+Logs use the `eu.lelfe.gamma` subsystem and `Gamma` category.
 Override success logs contain family token counts, including one combined count
 for extension tokens. They do not include token keys or mode payload values.
+At `.trace`, a validated override subtree is logged as `[override] ✓ validated`
+so it is distinct from base-theme validation.
 
 Next: [Getting started](getting-started.md)

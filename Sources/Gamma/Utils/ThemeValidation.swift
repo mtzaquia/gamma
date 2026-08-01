@@ -122,7 +122,8 @@ enum ThemeDiagnostics {
         _ theme: RawTheme,
         modes: ThemeModes,
         extensions: [ThemeExtensionRegistration] = [],
-        additionalIssues: [ThemeValidationIssue] = []
+        additionalIssues: [ThemeValidationIssue] = [],
+        isOverride: Bool = false
     ) {
         let key = validationKey(theme: theme, modes: modes, extensions: extensions)
         guard markReported(key) else { return }
@@ -134,12 +135,21 @@ enum ThemeDiagnostics {
             .uniqueSortedForDiagnostics()
 
         guard !issues.isEmpty else {
-            gammaLog.gammaDebug(.themeValidated(
-                themeID: theme.id,
-                colors: theme.colors.count,
-                fonts: theme.fonts.count,
-                units: theme.units.count
-            ))
+            gammaLog.gammaDebug(
+                isOverride
+                    ? .overridesValidated(
+                        themeID: theme.id,
+                        colors: theme.colors.count,
+                        fonts: theme.fonts.count,
+                        units: theme.units.count
+                    )
+                    : .themeValidated(
+                        themeID: theme.id,
+                        colors: theme.colors.count,
+                        fonts: theme.fonts.count,
+                        units: theme.units.count
+                    )
+            )
             return
         }
 
