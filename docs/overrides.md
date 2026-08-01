@@ -4,11 +4,14 @@ Use `WithThemeOverrides` to replace selected token modes inside one view subtree
 
 ```swift
 let campaignOverrides = RawThemeOverrides(
-  colors: [
-    "brand/accent": [
-      "day": RawColor.Mode(hex: "#B42318", alpha: 1),
-      "night": RawColor.Mode(hex: "#FDA29B", alpha: 1),
-    ],
+  tokens: [
+    try ThemeTokenOverride(
+      Theme.Colors.BrandAlias.brandAccent,
+      modes: [
+        "day": RawColor.Mode(hex: "#B42318", alpha: 1),
+        "night": RawColor.Mode(hex: "#FDA29B", alpha: 1),
+      ]
+    )
   ]
 )
 
@@ -21,7 +24,9 @@ Every view below `WithThemeOverrides` resolves `brand/accent` from the replaceme
 
 ## Override fonts and units
 
-The same scope can replace colors, fonts, and units together. `RawFont.Mode` is designed to be decoded with the rest of an override payload.
+`ThemeTokenOverride` infers the mode payload from the alias family. A color alias only accepts `RawColor.Mode`, a font alias accepts `RawFont.Mode`, and a unit alias accepts numeric unit modes. This keeps handwritten keys type-safe while preserving the backend's string-keyed JSON format.
+
+The same scope can replace colors, fonts, units, and registered extension families together. `RawFont.Mode` is designed to be decoded with the rest of an override payload.
 
 ```json
 {
@@ -64,7 +69,48 @@ WithThemeOverrides(overrides: overrides) {
 }
 ```
 
-Decoded override documents include `colors`, `fonts`, and `units`; use an empty object for a kind with no replacements.
+Decoded override documents may include any built-in or registered extension family. Omitted families have no replacements.
+
+## Override an extension token
+
+Custom mode payloads remain app-owned. When the mode is `Encodable`, the same typed entry API checks both its alias and replacement value:
+
+```swift
+let gradientOverrides = RawThemeOverrides(
+  tokens: [
+    try ThemeTokenOverride(
+      Theme.Gradients.BrandAlias.brandHero,
+      modes: [
+        "day": GradientToken.Mode(
+          stops: ["surface/background", "brand/accent"]
+        ),
+        "night": GradientToken.Mode(
+          stops: ["brand/accent", "surface/background"]
+        )
+      ]
+    )
+  ]
+)
+
+WithThemeOverrides(overrides: gradientOverrides) {
+  HeroBanner()
+}
+```
+
+The equivalent backend payload keeps the generated token keys as strings:
+
+```json
+{
+  "gradients": {
+    "brand/hero": {
+      "day": { "stops": ["surface/background", "brand/accent"] },
+      "night": { "stops": ["brand/accent", "surface/background"] }
+    }
+  }
+}
+```
+
+Gamma replaces the `modes` object on the existing extension token, then validates it through the registered extension's concrete `Token` type and selected mode.
 
 Overrides carry token values only. If an overridden font mode names a custom face, make that file available through the root `.theme(..., fontURLs:)` call or register it in the app before presenting the override. `WithThemeOverrides` does not download or register fonts.
 
@@ -74,7 +120,7 @@ An override replaces the complete mode dictionary for one token; it does not mer
 
 This makes an override self-contained and prevents an old base value from unexpectedly filling part of a remotely supplied treatment.
 
-Overrides must reference tokens that already exist in the base theme. They cannot introduce new aliases because generated source and component code would not know those aliases.
+Overrides must reference families and tokens that already exist in the base theme. They cannot introduce new aliases because generated source and component code would not know those aliases.
 
 Replacing a `RawThemeOverrides` value with newly decoded server data updates the transformed environment immediately. The app remains responsible for fetching that data and publishing the replacement value.
 
@@ -82,6 +128,6 @@ Replacing a `RawThemeOverrides` value with newly decoded server data updates the
 
 Gamma validates the transformed theme against the active resolver. Missing tokens or selected modes produce one consolidated diagnostic for that override state.
 
-Override identity composes through nested scopes and participates in the bounded token-cache scope, so values from the base theme, a parent override, or another server response are not reused accidentally.
+Override identity composes through nested scopes and participates in built-in and extension token caches, so values from the base theme, a parent override, or another server response are not reused accidentally.
 
 Next: [Diagnostics](diagnostics.md)

@@ -4,16 +4,16 @@ Mode names belong to the design system, not the library. A resolver translates t
 
 ```swift
 struct AppThemeModeResolver: ThemeModeResolving {
-  func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-    var modes = ResolvedThemeModes()
-    modes[Theme.Colors.self] = .init(light: "day", dark: "night")
-    modes[Theme.Fonts.self] = context.layoutDirection == .rightToLeft
-      ? .init(primary: "arabic", cascades: ["latin"])
-      : .init(primary: "latin", cascades: ["arabic"])
-    modes[Theme.Units.self] = context.horizontalSizeClass == .regular
-      ? "regular"
-      : "compact"
-    return modes
+  func modes(for context: ThemeModeContext) -> ThemeModes {
+    ThemeModes(
+      colors: .init(light: "day", dark: "night"),
+      fonts: context.layoutDirection == .rightToLeft
+        ? .init(primary: "arabic", cascades: ["latin"])
+        : .init(primary: "latin", cascades: ["arabic"]),
+      units: context.horizontalSizeClass == .regular
+        ? "regular"
+        : "compact"
+    )
   }
 }
 ```
@@ -42,13 +42,14 @@ Built-in colors use a light/dark pair so one returned `Color` can follow system 
 
 ## Selections
 
-One resolution returns all token policies together.
+One `ThemeModes` value returns all token policies together. Its initializer requires the three built-in selections, so a resolver cannot accidentally omit one. Consumer-defined families are supplied as typed `ThemeModeAssignment` values.
 
 | Family selection | Meaning |
 | --- | --- |
-| `modes[Theme.Colors.self]` | Light and dark color mode names. |
-| `modes[Theme.Fonts.self]` | Primary font mode and ordered cascade modes. |
-| `modes[Theme.Units.self]` | Unit mode used for spacing, sizing, and radius aliases. |
+| `colors` | Light and dark color mode names. |
+| `fonts` | Primary font mode and ordered cascade modes. |
+| `units` | Unit mode used for spacing, sizing, and radius aliases. |
+| `extensions` | Typed assignments for consumer-defined families. |
 
 Every selected mode must exist on every token of that kind. Invalid selections produce a consolidated diagnostic instead of changing policy per token. Consumer-defined families add typed selections to the same result; see [Theme extensions](theme-extensions.md#select-a-mode).
 
@@ -68,7 +69,7 @@ The standard resolver does not vary fonts or units with layout direction or size
 
 `@ThemeReader` participates in SwiftUI's dynamic-property lifecycle. It reads the resolver, color scheme, layout direction, size class, and active theme from one environment snapshot during view evaluation. Changing one of those values invalidates the consuming view through SwiftUI's normal dependency tracking.
 
-Keep `resolve(in:)` cheap, deterministic, and free of side effects. `@ThemeReader` captures one resolver result during each DynamicProperty update and every token read in that body evaluation uses the same snapshot. SwiftUI may still evaluate a body more than once. Do not capture environment values inside the resolver; use the supplied context.
+Keep `modes(for:)` cheap, deterministic, and free of side effects. `@ThemeReader` captures one resolver result during each DynamicProperty update and every token read in that body evaluation uses the same snapshot. SwiftUI may still evaluate a body more than once. Do not capture environment values inside the resolver; use the supplied context.
 
 Stateless resolvers need no identity boilerplate. If a resolver stores policy state that can change its answer for the same context, expose that state through `cacheIdentity`:
 
@@ -78,15 +79,15 @@ struct AppThemeModeResolver: ThemeModeResolving {
 
   var cacheIdentity: AnyHashable { campaign }
 
-  func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-    var modes = ResolvedThemeModes()
-    modes[Theme.Colors.self] = ThemeColorModeSelection(
-      light: "\(campaign)-light",
-      dark: "\(campaign)-dark"
+  func modes(for context: ThemeModeContext) -> ThemeModes {
+    ThemeModes(
+      colors: ThemeColorModeSelection(
+        light: "\(campaign)-light",
+        dark: "\(campaign)-dark"
+      ),
+      fonts: ThemeFontModeSelection(primary: "default"),
+      units: "default"
     )
-    modes[Theme.Fonts.self] = ThemeFontModeSelection(primary: "default")
-    modes[Theme.Units.self] = "default"
-    return modes
   }
 }
 ```

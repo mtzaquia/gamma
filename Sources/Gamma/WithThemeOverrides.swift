@@ -20,28 +20,128 @@
 //  SOFTWARE.
 //
 
+import Foundation
 import GammaSchema
 import SwiftUI
 
-/// A set of token value overrides decoded from JSON, keyed by token name then mode name.
-nonisolated public struct RawThemeOverrides: Decodable, Hashable, Sendable {
-    let colors: [String: [String: RawColor.Mode]]
-    let fonts: [String: [String: RawFont.Mode]]
-    let units: [String: [String: RawUnit.Mode]]
+/// A failure while constructing a type-safe token override.
+nonisolated public enum ThemeTokenOverrideError: Error, Hashable, Sendable {
+    /// The alias raw key does not begin with the group represented by its scope.
+    case aliasGroupMismatch(alias: String, expectedGroup: String)
+}
 
-    /// Creates a set of theme overrides for a given scope of ``WithThemeOverrides``.
+/// One type-safe replacement for all modes of a theme token.
+nonisolated public struct ThemeTokenOverride: Hashable, Sendable {
+    let familyKey: String
+    let tokenKey: String
+    let modes: ThemeJSONValue
+
+    /// Creates a replacement whose value type is determined by its alias family.
+    ///
+    /// The mode payload must be encodable when an override is constructed in
+    /// Swift. Overrides decoded from JSON do not require this initializer.
+    ///
     /// - Parameters:
-    ///   - colors: Replacement color-mode dictionaries keyed by existing token name.
-    ///   - fonts: Replacement font-mode dictionaries keyed by existing token name.
-    ///   - units: Replacement unit-mode dictionaries keyed by existing token name.
-    public init(
-        colors: [String : [String : RawColor.Mode]] = [:],
-        fonts: [String : [String : RawFont.Mode]] = [:],
-        units: [String : [String : RawUnit.Mode]] = [:]
-    ) {
-        self.colors = colors
-        self.fonts = fonts
-        self.units = units
+    ///   - alias: The existing token whose complete mode dictionary is replaced.
+    ///   - modes: The replacement values keyed by mode name.
+    /// - Throws: ``ThemeTokenOverrideError/aliasGroupMismatch(alias:expectedGroup:)``
+    ///   when a manually constructed alias violates its group scope, or an
+    ///   encoding error when the mode payload cannot be represented as JSON.
+    public init<Scope: ThemeAliasScope>(
+        _ alias: Theme.Alias<Scope>,
+        modes: [String: Scope.Family.Token.Mode]
+    ) throws where Scope.Family.Token.Mode: Encodable {
+        if let expectedGroup = Scope.groupName, alias.tokenGroup != expectedGroup {
+            throw ThemeTokenOverrideError.aliasGroupMismatch(
+                alias: alias.rawValue,
+                expectedGroup: expectedGroup
+            )
+        }
+        familyKey = Scope.Family.key
+        tokenKey = alias.rawValue
+        let data = try JSONEncoder().encode(modes)
+        self.modes = try JSONDecoder().decode(ThemeJSONValue.self, from: data)
+    }
+}
+
+/// A set of complete token-mode replacements for one themed view subtree.
+///
+/// Decoded payloads use top-level family keys such as `colors`, `fonts`,
+/// `units`, or a registered extension key. Token keys remain JSON strings on
+/// the wire. Use ``ThemeTokenOverride`` when constructing overrides in Swift so
+/// each key and mode payload are checked against the alias family.
+nonisolated public struct RawThemeOverrides: Decodable, Hashable, Sendable {
+    let families: [String: [String: ThemeJSONValue]]
+
+    /// Creates overrides from type-safe token replacements.
+    ///
+    /// When `tokens` contains more than one replacement for the same alias, the
+    /// last replacement wins.
+    ///
+    /// - Parameter tokens: The token replacements to apply.
+    public init(tokens: [ThemeTokenOverride] = []) {
+        var families: [String: [String: ThemeJSONValue]] = [:]
+        for token in tokens {
+            families[token.familyKey, default: [:]][token.tokenKey] = token.modes
+        }
+        self.families = families
+    }
+
+    /// Decodes string-keyed token replacements for built-in and extension families.
+    ///
+    /// Built-in mode payloads are validated during decoding. Consumer-defined
+    /// payloads are decoded as JSON and validated against their registered
+    /// ``ThemeExtension`` type when the override is applied.
+    ///
+    /// - Parameter decoder: The decoder supplying the override document.
+    /// - Throws: A decoding error when a family is not a token dictionary or a
+    ///   built-in mode payload has the wrong shape.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: OverrideCodingKey.self)
+        families = try Dictionary(uniqueKeysWithValues: container.allKeys.map { key in
+            if key.stringValue == Theme.Colors.key {
+                _ = try container.decode(
+                    [String: [String: RawColor.Mode]].self,
+                    forKey: key
+                )
+            } else if key.stringValue == Theme.Fonts.key {
+                _ = try container.decode(
+                    [String: [String: RawFont.Mode]].self,
+                    forKey: key
+                )
+            } else if key.stringValue == Theme.Units.key {
+                _ = try container.decode(
+                    [String: [String: RawUnit.Mode]].self,
+                    forKey: key
+                )
+            }
+            let tokens = try container.decode([String: ThemeJSONValue].self, forKey: key)
+            if tokens.values.contains(where: { value in
+                guard case .object = value else { return true }
+                return false
+            }) {
+                throw DecodingError.dataCorruptedError(
+                    forKey: key,
+                    in: container,
+                    debugDescription: "Override tokens must contain keyed mode dictionaries"
+                )
+            }
+            return (
+                key.stringValue,
+                tokens
+            )
+        })
+    }
+
+    func tokens(for familyKey: String) -> [String: ThemeJSONValue] {
+        families[familyKey, default: [:]]
+    }
+
+    var extensionTokenCount: Int {
+        families
+            .filter { !Self.builtInFamilyKeys.contains($0.key) }
+            .values
+            .reduce(0) { $0 + $1.count }
     }
 
     func combinedHash(with parentHash: Int) -> Int {
@@ -50,11 +150,32 @@ nonisolated public struct RawThemeOverrides: Decodable, Hashable, Sendable {
         hasher.combine(self)
         return hasher.finalize()
     }
+
+    private static let builtInFamilyKeys = Set([
+        Theme.Colors.key,
+        Theme.Fonts.key,
+        Theme.Units.key,
+    ])
+}
+
+private struct OverrideCodingKey: CodingKey {
+    let stringValue: String
+    let intValue: Int?
+
+    init(stringValue: String) {
+        self.stringValue = stringValue
+        intValue = nil
+    }
+
+    init?(intValue: Int) {
+        stringValue = String(intValue)
+        self.intValue = intValue
+    }
 }
 
 /// A view that applies decoded token overrides to the theme environment of its content.
 ///
-/// Use this to hot-swap specific design tokens (colors, fonts, units) within a
+/// Use this to hot-swap specific built-in or consumer-defined tokens within a
 /// subtree without replacing the entire theme.
 public struct WithThemeOverrides<Content: View>: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -67,8 +188,8 @@ public struct WithThemeOverrides<Content: View>: View {
     let content: Content
 
     public var body: some View {
-        let resolvedModes = modeResolver.resolve(
-            in: ThemeModeContext(
+        let modes = modeResolver.modes(
+            for: ThemeModeContext(
                 colorScheme: colorScheme,
                 layoutDirection: layoutDirection,
                 horizontalSizeClass: horizontalSizeClass
@@ -80,7 +201,7 @@ public struct WithThemeOverrides<Content: View>: View {
                 let issues = theme.apply(overrides)
                 ThemeDiagnostics.validate(
                     theme,
-                    resolvedModes: resolvedModes,
+                    modes: modes,
                     extensions: themeExtensions,
                     additionalIssues: issues
                 )
@@ -96,11 +217,11 @@ public struct WithThemeOverrides<Content: View>: View {
     }
 }
 
-private extension RawTheme {
+extension RawTheme {
     mutating func apply(_ overrides: RawThemeOverrides) -> [ThemeValidationIssue] {
         var issues: [ThemeValidationIssue] = []
 
-        for (token, modes) in overrides.colors {
+        for (token, payload) in overrides.tokens(for: Theme.Colors.key) {
             guard var color = colors[token] else {
                 issues.append(.init(
                     path: "overrides.colors.\(token)",
@@ -108,11 +229,18 @@ private extension RawTheme {
                 ))
                 continue
             }
-            color.modes = modes
-            colors[token] = color
+            do {
+                color.modes = try decodeOverrideModes(payload, as: RawColor.Mode.self)
+                colors[token] = color
+            } catch {
+                issues.append(.init(
+                    path: "overrides.colors.\(token)",
+                    message: "does not contain valid color modes"
+                ))
+            }
         }
 
-        for (token, modes) in overrides.fonts {
+        for (token, payload) in overrides.tokens(for: Theme.Fonts.key) {
             guard var font = fonts[token] else {
                 issues.append(.init(
                     path: "overrides.fonts.\(token)",
@@ -120,11 +248,18 @@ private extension RawTheme {
                 ))
                 continue
             }
-            font.modes = modes
-            fonts[token] = font
+            do {
+                font.modes = try decodeOverrideModes(payload, as: RawFont.Mode.self)
+                fonts[token] = font
+            } catch {
+                issues.append(.init(
+                    path: "overrides.fonts.\(token)",
+                    message: "does not contain valid font modes"
+                ))
+            }
         }
 
-        for (token, modes) in overrides.units {
+        for (token, payload) in overrides.tokens(for: Theme.Units.key) {
             guard var unit = units[token] else {
                 issues.append(.init(
                     path: "overrides.units.\(token)",
@@ -132,11 +267,67 @@ private extension RawTheme {
                 ))
                 continue
             }
-            unit.modes = modes
-            units[token] = unit
+            do {
+                unit.modes = try decodeOverrideModes(payload, as: RawUnit.Mode.self)
+                units[token] = unit
+            } catch {
+                issues.append(.init(
+                    path: "overrides.units.\(token)",
+                    message: "does not contain valid unit modes"
+                ))
+            }
+        }
+
+        for (family, tokens) in overrides.families
+        where family != Theme.Colors.key
+            && family != Theme.Fonts.key
+            && family != Theme.Units.key {
+            guard case let .object(existingTokens)? = extensionPayloads[family] else {
+                issues.append(.init(
+                    path: "overrides.\(family)",
+                    message: "references a token family that does not exist"
+                ))
+                continue
+            }
+
+            var updatedTokens = existingTokens
+            for (token, modes) in tokens {
+                guard case let .object(existingToken)? = updatedTokens[token] else {
+                    issues.append(.init(
+                        path: "overrides.\(family).\(token)",
+                        message: "references a token that does not exist"
+                    ))
+                    continue
+                }
+                guard case .object = modes else {
+                    issues.append(.init(
+                        path: "overrides.\(family).\(token)",
+                        message: "expected a keyed mode dictionary"
+                    ))
+                    continue
+                }
+
+                var updatedToken = existingToken
+                updatedToken["modes"] = modes
+                updatedTokens[token] = .object(updatedToken)
+            }
+            extensionPayloads[family] = .object(updatedTokens)
         }
 
         overrideHash = overrides.combinedHash(with: overrideHash)
         return issues
     }
+
+    private func decodeOverrideModes<Mode: Decodable>(
+        _ payload: ThemeJSONValue,
+        as _: Mode.Type
+    ) throws -> [String: Mode] {
+        guard case .object = payload else { throw OverridePayloadError.expectedModeDictionary }
+        let data = try JSONEncoder().encode(payload)
+        return try JSONDecoder().decode([String: Mode].self, from: data)
+    }
+}
+
+private enum OverridePayloadError: Error {
+    case expectedModeDictionary
 }

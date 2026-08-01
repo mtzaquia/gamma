@@ -142,5 +142,16 @@
       "description": "Card corner radius",
       "modes": { "compact": 20, "regular": 28 }
     }
+  },
+  "gradients": {
+    "brand/hero": {
+      "name": "Hero",
+      "group": "brand",
+      "description": "Appearance-aware brand gradient",
+      "modes": {
+        "day": { "stops": ["brand/accent", "text/primary"] },
+        "night": { "stops": ["text/primary", "brand/accent"] }
+      }
+    }
   }
 }

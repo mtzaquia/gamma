@@ -29,21 +29,21 @@ package typealias ThemeValidationIssue = GammaSchema.ThemeValidationIssue
 
 extension RawTheme {
     func validationIssues(
-        resolvedModes: ResolvedThemeModes? = nil,
+        modes: ThemeModes? = nil,
         extensions: [ThemeExtensionRegistration] = []
     ) -> [ThemeValidationIssue] {
         var issues = schemaValidationIssues()
         issues.append(contentsOf: extensions.flatMap {
-            $0.validationImplementation(self, resolvedModes)
+            $0.validationImplementation(self, modes)
         })
 
-        guard let resolvedModes else {
+        guard let modes else {
             return issues.sortedForDiagnostics()
         }
 
-        let colorSelection = resolvedModes[Theme.Colors.self]
-        let fontSelection = resolvedModes[Theme.Fonts.self]
-        let unitSelection = resolvedModes[Theme.Units.self]
+        let colorSelection = modes[Theme.Colors.self]
+        let fontSelection = modes[Theme.Fonts.self]
+        let unitSelection = modes[Theme.Units.self]
 
         if let colorSelection {
             if colorSelection.light.isEmpty {
@@ -120,15 +120,15 @@ enum ThemeDiagnostics {
 
     static func validate(
         _ theme: RawTheme,
-        resolvedModes: ResolvedThemeModes,
+        modes: ThemeModes,
         extensions: [ThemeExtensionRegistration] = [],
         additionalIssues: [ThemeValidationIssue] = []
     ) {
-        let key = validationKey(theme: theme, modes: resolvedModes, extensions: extensions)
+        let key = validationKey(theme: theme, modes: modes, extensions: extensions)
         guard markReported(key) else { return }
 
         let issues = (
-            theme.validationIssues(resolvedModes: resolvedModes, extensions: extensions)
+            theme.validationIssues(modes: modes, extensions: extensions)
                 + additionalIssues
         )
             .uniqueSortedForDiagnostics()
@@ -156,9 +156,10 @@ enum ThemeDiagnostics {
         guard markReported(key) else { return }
         gammaLog.gammaDebug(.overridesApplied(
             themeID: theme.id,
-            colors: overrides.colors.count,
-            fonts: overrides.fonts.count,
-            units: overrides.units.count
+            colors: overrides.tokens(for: Theme.Colors.key).count,
+            fonts: overrides.tokens(for: Theme.Fonts.key).count,
+            units: overrides.tokens(for: Theme.Units.key).count,
+            extensions: overrides.extensionTokenCount
         ))
     }
 
@@ -195,7 +196,7 @@ enum ThemeDiagnostics {
 
     private static func validationKey(
         theme: RawTheme,
-        modes: ResolvedThemeModes,
+        modes: ThemeModes,
         extensions: [ThemeExtensionRegistration]
     ) -> String {
         let extensionIdentity = extensions

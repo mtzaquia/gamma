@@ -45,28 +45,6 @@ public extension View {
         )
     }
 
-    /// Loads a generated bundled theme and injects it with a custom mode resolver.
-    ///
-    /// - Parameters:
-    ///   - resource: The generated theme resource to install.
-    ///   - bundle: The bundle that contains the resource.
-    ///   - modeResolver: The policy that selects token modes.
-    ///   - fontURLs: Local font-file URLs to register before rendering.
-    func theme<ModeResolver: ThemeModeResolving>(
-        _ resource: ThemeResource,
-        bundle: Bundle = .main,
-        modeResolver: ModeResolver,
-        fontURLs: [URL] = []
-    ) -> some View {
-        theme(
-            resource,
-            bundle: bundle,
-            modeResolver: modeResolver,
-            extensions: [],
-            fontURLs: fontURLs
-        )
-    }
-
     /// Loads a generated bundled theme with custom mode and family support.
     ///
     /// - Parameters:
@@ -79,7 +57,7 @@ public extension View {
         _ resource: ThemeResource,
         bundle: Bundle = .main,
         modeResolver: ModeResolver,
-        extensions: [ThemeExtensionRegistration],
+        extensions: [ThemeExtensionRegistration] = [],
         fontURLs: [URL] = []
     ) -> some View {
         theme(
@@ -106,25 +84,6 @@ public extension View {
         )
     }
 
-    /// Injects a theme and its mode resolver into the view hierarchy.
-    ///
-    /// - Parameters:
-    ///   - rawTheme: The decoded theme to activate.
-    ///   - modeResolver: The policy that selects token modes.
-    ///   - fontURLs: Local font-file URLs to register before rendering.
-    func theme<ModeResolver: ThemeModeResolving>(
-        _ rawTheme: RawTheme,
-        modeResolver: ModeResolver,
-        fontURLs: [URL] = []
-    ) -> some View {
-        theme(
-            rawTheme,
-            modeResolver: modeResolver,
-            extensions: [],
-            fontURLs: fontURLs
-        )
-    }
-
     /// Injects a theme, mode resolver, and consumer-defined token families.
     ///
     /// - Parameters:
@@ -135,7 +94,7 @@ public extension View {
     func theme<ModeResolver: ThemeModeResolving>(
         _ rawTheme: RawTheme,
         modeResolver: ModeResolver,
-        extensions: [ThemeExtensionRegistration],
+        extensions: [ThemeExtensionRegistration] = [],
         fontURLs: [URL] = []
     ) -> some View {
         self

@@ -31,8 +31,8 @@ import UIKit
 struct ThemeModeResolverTests {
     @Test("Default resolver uses default font and unit modes")
     func defaultResolverUsesDefaultFontAndUnitModes() {
-        let modes = DefaultThemeModeResolver().resolve(
-            in: ThemeModeContext(
+        let modes = DefaultThemeModeResolver().modes(
+            for: ThemeModeContext(
                 colorScheme: .light,
                 layoutDirection: .leftToRight,
                 horizontalSizeClass: .compact
@@ -49,8 +49,8 @@ struct ThemeModeResolverTests {
 
     @Test("Default font and unit modes do not vary with resolver context")
     func defaultFontAndUnitModesDoNotVaryWithContext() {
-        let modes = DefaultThemeModeResolver().resolve(
-            in: ThemeModeContext(
+        let modes = DefaultThemeModeResolver().modes(
+            for: ThemeModeContext(
                 colorScheme: .light,
                 layoutDirection: .rightToLeft,
                 horizontalSizeClass: .regular
@@ -65,15 +65,15 @@ struct ThemeModeResolverTests {
     func customResolverCanUseHorizontalSizeClass() {
         let resolver = ResponsiveModeResolver()
 
-        let compactModes = resolver.resolve(
-            in: ThemeModeContext(
+        let compactModes = resolver.modes(
+            for: ThemeModeContext(
                 colorScheme: .light,
                 layoutDirection: .leftToRight,
                 horizontalSizeClass: .compact
             )
         )
-        let regularModes = resolver.resolve(
-            in: ThemeModeContext(
+        let regularModes = resolver.modes(
+            for: ThemeModeContext(
                 colorScheme: .light,
                 layoutDirection: .leftToRight,
                 horizontalSizeClass: .regular
@@ -87,15 +87,15 @@ struct ThemeModeResolverTests {
     @Test("Custom family modes are selected dynamically by typed family")
     func customFamilyModesAreDynamicallySelected() {
         let resolver = ExtensionModeResolver()
-        let lightModes = resolver.resolve(
-            in: ThemeModeContext(
+        let lightModes = resolver.modes(
+            for: ThemeModeContext(
                 colorScheme: .light,
                 layoutDirection: .leftToRight,
                 horizontalSizeClass: .compact
             )
         )
-        let darkModes = resolver.resolve(
-            in: ThemeModeContext(
+        let darkModes = resolver.modes(
+            for: ThemeModeContext(
                 colorScheme: .dark,
                 layoutDirection: .leftToRight,
                 horizontalSizeClass: .regular
@@ -240,7 +240,7 @@ private struct ResponsiveModeResolver: ThemeModeResolving {
 
     var cacheIdentity: AnyHashable { fallbackUnitMode }
 
-    func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
+    func modes(for context: ThemeModeContext) -> ThemeModes {
         let unitMode: String
         switch context.horizontalSizeClass {
         case .compact:
@@ -253,25 +253,31 @@ private struct ResponsiveModeResolver: ThemeModeResolving {
             unitMode = fallbackUnitMode
         }
 
-        var modes = ResolvedThemeModes()
-        modes[Theme.Colors.self] = ThemeColorModeSelection(light: "day", dark: "night")
-        modes[Theme.Fonts.self] = ThemeFontModeSelection(primary: "primary")
-        modes[Theme.Units.self] = unitMode
-        return modes
+        return ThemeModes(
+            colors: ThemeColorModeSelection(light: "day", dark: "night"),
+            fonts: ThemeFontModeSelection(primary: "primary"),
+            units: unitMode
+        )
     }
 }
 
 private struct ExtensionModeResolver: ThemeModeResolving {
-    func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-        var modes = ResolvedThemeModes()
-        modes[Theme.Colors.self] = .init(light: "light", dark: "dark")
-        modes[Theme.Fonts.self] = .init(primary: "default")
-        modes[Theme.Units.self] = "default"
-        modes[Theme.TestGradients.self] = context.colorScheme == .dark ? "night" : "day"
-        modes[TestMotion.self] = context.horizontalSizeClass == .compact
-            ? "reduced"
-            : "expressive"
-        return modes
+    func modes(for context: ThemeModeContext) -> ThemeModes {
+        ThemeModes(
+            colors: .init(light: "light", dark: "dark"),
+            fonts: .init(primary: "default"),
+            units: "default",
+            extensions: [
+                ThemeModeAssignment(
+                    Theme.TestGradients.self,
+                    mode: context.colorScheme == .dark ? "night" : "day"
+                ),
+                ThemeModeAssignment(
+                    TestMotion.self,
+                    mode: context.horizontalSizeClass == .compact ? "reduced" : "expressive"
+                ),
+            ]
+        )
     }
 }
 

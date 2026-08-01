@@ -61,8 +61,12 @@ The generator cannot infer the Swift representation of a mode payload. Define it
 
 ```swift
 nonisolated public struct GradientToken: ThemeExtensionToken {
-  nonisolated public struct Mode: Decodable {
+  nonisolated public struct Mode: Codable, Hashable, Sendable {
     public let stops: [String]
+
+    public init(stops: [String]) {
+      self.stops = stops
+    }
   }
 
   public let name: String
@@ -75,29 +79,32 @@ extension Theme.Gradients: ThemeExtension {
 }
 ```
 
-Generated markers are public, so a public conformance requires a public token type and `Token` witness. In a main-actor-by-default target, declare the token and mode types `nonisolated` so `Decodable` synthesis remains available.
+Generated family markers declare `Sendable` in generated source, so adding `ThemeExtension` conformance does not create a retroactive concurrency conformance. Mark the token type, its protocol-witness properties, and the `Token` typealias public because they satisfy requirements on that public family. A public mode initializer is also needed when other source files construct values by hand. In a main-actor-by-default target, declare the token and mode types `nonisolated` so `Codable` synthesis remains available. `Encodable` is only required when the app constructs typed overrides for this family; decoding and resolution require `Decodable`.
 Because the generated alias is constrained to `ThemeExtension`, adding a custom family also requires this conformance in the consumer target.
 
 ## Select a mode
 
-`ResolvedThemeModes` is an empty typed collection. Populate every built-in and custom family your theme uses. Custom families select one arbitrary mode name by default; that name may come from any `ThemeModeContext` input or resolver state.
+`ThemeModes` requires the three built-in selections and accepts typed assignments for custom families. A custom family selects one arbitrary mode name by default; that name may come from any `ThemeModeContext` input or resolver state.
 
 ```swift
 struct AppThemeModeResolver: ThemeModeResolving {
-  func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-    var modes = ResolvedThemeModes()
-    modes[Theme.Colors.self] = .init(light: "light", dark: "dark")
-    modes[Theme.Fonts.self] = .init(primary: "default")
-    modes[Theme.Units.self] = "default"
-    modes[Theme.Gradients.self] = context.colorScheme == .dark
-      ? "night"
-      : "day"
-    return modes
+  func modes(for context: ThemeModeContext) -> ThemeModes {
+    ThemeModes(
+      colors: .init(light: "light", dark: "dark"),
+      fonts: .init(primary: "default"),
+      units: "default",
+      extensions: [
+        ThemeModeAssignment(
+          Theme.Gradients.self,
+          mode: context.colorScheme == .dark ? "night" : "day"
+        )
+      ]
+    )
   }
 }
 ```
 
-The family type keeps unrelated selections distinct even when they use the same mode names. A family that does not care about appearance can instead use size class, layout direction, resolver state, or a fixed value such as `modes[Theme.Gradients.self] = "default"`.
+The family type keeps unrelated selections distinct even when they use the same mode names. A family that does not care about appearance can instead use size class, layout direction, resolver state, or a fixed assignment such as `ThemeModeAssignment(Theme.Gradients.self, mode: "default")`.
 
 ## Register the family
 
@@ -120,7 +127,9 @@ The overloads that use `DefaultThemeModeResolver` do not accept registrations be
 
 ```swift
 public extension ThemeProxy {
-  func gradient(_ alias: Theme.Gradients.BrandAlias) -> LinearGradient {
+  func gradient<Scope: ThemeAliasScope>(
+    _ alias: Theme.Alias<Scope>
+  ) -> LinearGradient where Scope.Family == Theme.Gradients {
     guard let mode = resolve(alias) else {
       return LinearGradient(
         colors: [.clear],
@@ -137,6 +146,28 @@ public extension ThemeProxy {
       endPoint: .bottom
     )
   }
+}
+```
+
+The generic scope matters because `Theme.Alias` is invariant. A method taking
+only `Theme.Alias<Theme.Gradients>` accepts family-scoped, group-less aliases,
+but it does not accept `Theme.Alias<Theme.Gradients.BrandGroup>`, which is the
+underlying type of `BrandAlias`. Constraining `Scope.Family` instead accepts both:
+
+```swift
+let familyAlias = Theme.Alias<Theme.Gradients>(rawValue: "background")
+let brandAlias: Theme.Gradients.BrandAlias = .brandHero
+
+theme.gradient(familyAlias) // accepted by the generic family resolver
+theme.gradient(brandAlias)  // also accepted
+```
+
+A component that only permits brand gradients should still use the narrower
+type at its own boundary:
+
+```swift
+struct HeroBackground: View {
+  let gradient: Theme.Gradients.BrandAlias
 }
 ```
 

@@ -47,6 +47,7 @@ private struct SampleRootView: View {
         .theme(
             .sampleTheme,
             modeResolver: SampleThemeModeResolver(),
+            extensions: [ThemeExtensionRegistration(Theme.Gradients.self)],
             fontURLs: SampleTheme.fontURLs
         )
         .environment(\.layoutDirection, layoutDirection)

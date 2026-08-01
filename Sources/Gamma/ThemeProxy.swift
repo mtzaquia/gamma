@@ -40,13 +40,13 @@ public struct ThemeProxy: DynamicProperty {
 
     private struct Snapshot {
         let theme: RawTheme
-        let modes: ResolvedThemeModes
+        let modes: ThemeModes
         let cacheScope: ThemeCacheScope
     }
 
     private func makeSnapshot() -> Snapshot {
-        let modes = modeResolver.resolve(
-            in: ThemeModeContext(
+        let modes = modeResolver.modes(
+            for: ThemeModeContext(
                 colorScheme: colorScheme,
                 layoutDirection: layoutDirection,
                 horizontalSizeClass: horizontalSizeClass
@@ -54,7 +54,7 @@ public struct ThemeProxy: DynamicProperty {
         )
         ThemeDiagnostics.validate(
             theme,
-            resolvedModes: modes,
+            modes: modes,
             extensions: themeExtensions
         )
         return Snapshot(

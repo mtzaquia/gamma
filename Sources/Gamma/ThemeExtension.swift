@@ -131,7 +131,7 @@ public extension ThemeTokenGroup {
 /// verifies that every token contains it.
 public struct ThemeExtensionRegistration {
     let identifier: ObjectIdentifier
-    let validationImplementation: (RawTheme, ResolvedThemeModes?) -> [ThemeValidationIssue]
+    let validationImplementation: (RawTheme, ThemeModes?) -> [ThemeValidationIssue]
 
     /// Creates a registration for a theme extension family.
     ///
@@ -139,10 +139,10 @@ public struct ThemeExtensionRegistration {
     public init<Extension: ThemeExtension>(_ family: Extension.Type)
     where Extension.Selection == String {
         identifier = ObjectIdentifier(Extension.self)
-        validationImplementation = { theme, resolvedModes in
+        validationImplementation = { theme, modes in
             theme.extensionValidationIssues(
                 for: family,
-                resolvedModes: resolvedModes
+                modes: modes
             )
         }
     }
@@ -151,7 +151,7 @@ public struct ThemeExtensionRegistration {
 extension RawTheme {
     func extensionValidationIssues<Extension: ThemeExtension>(
         for _: Extension.Type,
-        resolvedModes: ResolvedThemeModes?
+        modes: ThemeModes?
     ) -> [ThemeValidationIssue]
     where Extension.Selection == String {
         let structuralIssues = extensionStructureValidationIssues(forKey: Extension.key)
@@ -159,8 +159,8 @@ extension RawTheme {
 
         do {
             let tokens = try ThemeExtensionTokenCache.tokens(for: Extension.self, in: self) ?? [:]
-            guard let resolvedModes else { return [] }
-            guard let selectedMode = resolvedModes[Extension.self] else {
+            guard let modes else { return [] }
+            guard let selectedMode = modes[Extension.self] else {
                 return [ThemeValidationIssue(
                     path: "resolver.\(Extension.key)",
                     message: "mode selection is required for the registered extension"
@@ -279,6 +279,7 @@ extension RawTheme {
 
 private struct ThemeExtensionTokenCacheKey: Hashable {
     let themeInstanceID: UUID
+    let overrideHash: Int
     let extensionType: ObjectIdentifier
 }
 
@@ -292,6 +293,7 @@ enum ThemeExtensionTokenCache {
     where Extension.Selection == String {
         let key = ThemeExtensionTokenCacheKey(
             themeInstanceID: theme.instanceID,
+            overrideHash: theme.overrideHash,
             extensionType: ObjectIdentifier(Extension.self)
         )
         if let cached = cache[key] as? [String: Extension.Token] {

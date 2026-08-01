@@ -9,10 +9,10 @@ Open `SampleApp.xcodeproj` and run the shared `SampleApp` scheme. The library su
 - Switch between LTR and RTL. The active body face changes from `NotoSans-Regular` to `NotoSansArabic-Regular`, with the other face retained as a cascade.
 - Change the simulator appearance. Colors resolve from the theme's `day` and `night` modes.
 - Run on an iPhone and an iPad, or otherwise change horizontal size class. Spacing and radius values use compact and regular unit modes respectively.
-- Inspect typography, color, and responsive-unit sections built entirely from generated aliases.
+- Inspect typography, color, gradient, and responsive-unit sections built entirely from generated aliases.
 - Inspect the theme spark and token-flow artwork loaded through generated icon and illustration aliases.
 
-`SampleThemeModeResolver` owns those mappings. The theme itself only declares named modes.
+`SampleThemeModeResolver` owns those mappings. The theme itself only declares named modes, including the custom `gradients` family. The app registers `Theme.Gradients`, decodes its stop aliases through `GradientToken`, and renders the generated `.brandHero` alias as a SwiftUI `LinearGradient`. The second gradient preview uses `ThemeTokenOverride` and `WithThemeOverrides` to replace that extension token inside one subtree.
 
 ## Code generation
 

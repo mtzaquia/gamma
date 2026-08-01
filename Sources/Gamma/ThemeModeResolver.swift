@@ -49,30 +49,6 @@ nonisolated public struct ThemeModeContext: Hashable, Sendable {
         self.horizontalSizeClass = horizontalSizeClass
     }
 
-    /// Creates a compatibility context that assumes light appearance.
-    ///
-    /// Use ``init(colorScheme:layoutDirection:horizontalSizeClass:)`` so manually
-    /// created contexts reflect the appearance being tested. Gamma supplies the
-    /// actual environment color scheme when resolving an installed theme.
-    ///
-    /// - Parameters:
-    ///   - layoutDirection: The current writing direction.
-    ///   - horizontalSizeClass: The current horizontal size class, if available.
-    @available(
-        *,
-        deprecated,
-        message: "Use init(colorScheme:layoutDirection:horizontalSizeClass:) instead."
-    )
-    public init(
-        layoutDirection: LayoutDirection,
-        horizontalSizeClass: UserInterfaceSizeClass?
-    ) {
-        self.init(
-            colorScheme: .light,
-            layoutDirection: layoutDirection,
-            horizontalSizeClass: horizontalSizeClass
-        )
-    }
 }
 
 /// The color modes used by a dynamic color in light and dark appearances.
@@ -103,78 +79,75 @@ nonisolated public struct ThemeFontModeSelection: Hashable, Sendable {
     }
 }
 
-/// The complete set of modes selected for the current SwiftUI environment.
-nonisolated public struct ResolvedThemeModes: Hashable, Sendable {
-    private var selections: [ObjectIdentifier: AnyThemeModeSelection] = [:]
+/// One type-safe mode assignment for a token family.
+///
+/// Use assignments for consumer-defined families passed to
+/// ``ThemeModes/init(colors:fonts:units:extensions:)``. The family determines
+/// the required mode-selection type.
+nonisolated public struct ThemeModeAssignment: Hashable, Sendable {
+    fileprivate let familyIdentifier: ObjectIdentifier
+    fileprivate let selection: AnyThemeModeSelection
 
-    /// Creates an empty collection of family mode selections.
-    public init() {}
-
-    /// Creates color, font, and unit selections through the legacy fixed fields.
+    /// Creates an assignment for a built-in or consumer-defined token family.
     ///
-    /// The values are stored under ``Theme/Colors``, ``Theme/Fonts``, and
-    /// ``Theme/Units`` and remain available through the typed subscript.
-    @available(
-        *,
-        deprecated,
-        message: "Create ResolvedThemeModes() and assign typed family selections instead."
-    )
+    /// - Parameters:
+    ///   - family: The family that will resolve using this mode selection.
+    ///   - mode: The family-specific selection to store.
+    public init<Family: ThemeExtension>(
+        _ family: Family.Type,
+        mode: Family.Selection
+    ) {
+        familyIdentifier = ObjectIdentifier(family)
+        selection = AnyThemeModeSelection(mode)
+    }
+}
+
+/// The complete mode selection for one SwiftUI environment.
+nonisolated public struct ThemeModes: Hashable, Sendable {
+    private let selections: [ObjectIdentifier: AnyThemeModeSelection]
+
+    /// Creates a complete selection for the built-in families and any extensions.
+    ///
+    /// When `extensions` contains more than one assignment for the same family,
+    /// the last assignment wins.
+    ///
+    /// - Parameters:
+    ///   - colors: The light and dark color modes.
+    ///   - fonts: The primary and cascade font modes.
+    ///   - units: The selected numeric-unit mode.
+    ///   - extensions: Mode assignments for consumer-defined token families.
     public init(
         colors: ThemeColorModeSelection,
         fonts: ThemeFontModeSelection,
-        unit: String
+        units: String,
+        extensions: [ThemeModeAssignment] = []
     ) {
-        self.init()
-        self[Theme.Colors.self] = colors
-        self[Theme.Fonts.self] = fonts
-        self[Theme.Units.self] = unit
-    }
-
-    /// The legacy color selection supplied through ``Theme/Colors``.
-    ///
-    /// Use the typed subscript in new resolver implementations. If the family
-    /// was not assigned, this compatibility property returns `light` and `dark`.
-    @available(*, deprecated, message: "Use modes[Theme.Colors.self] instead.")
-    public var colors: ThemeColorModeSelection {
-        self[Theme.Colors.self] ?? StandardThemeModeSelection.colors
-    }
-
-    /// The legacy font selection supplied through ``Theme/Fonts``.
-    ///
-    /// Use the typed subscript in new resolver implementations. If the family
-    /// was not assigned, this compatibility property returns `default`.
-    @available(*, deprecated, message: "Use modes[Theme.Fonts.self] instead.")
-    public var fonts: ThemeFontModeSelection {
-        self[Theme.Fonts.self] ?? StandardThemeModeSelection.fonts
-    }
-
-    /// The legacy unit mode supplied through ``Theme/Units``.
-    ///
-    /// Use the typed subscript in new resolver implementations. If the family
-    /// was not assigned, this compatibility property returns `default`.
-    @available(*, deprecated, message: "Use modes[Theme.Units.self] instead.")
-    public var unit: String {
-        self[Theme.Units.self] ?? StandardThemeModeSelection.unit
+        var selections = [
+            ObjectIdentifier(Theme.Colors.self): AnyThemeModeSelection(colors),
+            ObjectIdentifier(Theme.Fonts.self): AnyThemeModeSelection(fonts),
+            ObjectIdentifier(Theme.Units.self): AnyThemeModeSelection(units),
+        ]
+        for assignment in extensions {
+            selections[assignment.familyIdentifier] = assignment.selection
+        }
+        self.selections = selections
     }
 
     /// The resolver selection for a built-in or consumer-defined token family.
     ///
-    /// Assign selections while implementing ``ThemeModeResolving/resolve(in:)``.
-    /// Reading an unassigned family returns `nil`.
+    /// A family without an assignment returns `nil`. Resolver implementations
+    /// provide custom family selections through
+    /// ``init(colors:fonts:units:extensions:)``; resolution code uses this
+    /// subscript to recover the family-specific selection type.
     public subscript<Family: ThemeExtension>(
         _ family: Family.Type
     ) -> Family.Selection? {
-        get {
-            selections[ObjectIdentifier(family)]?.value.base as? Family.Selection
-        }
-        set {
-            selections[ObjectIdentifier(family)] = newValue.map(AnyThemeModeSelection.init)
-        }
+        selections[ObjectIdentifier(family)]?.value.base as? Family.Selection
     }
 }
 
 /// `AnyHashable` predates `Sendable`; values entering this box are constrained
-/// to `Hashable & Sendable` by `ResolvedThemeModes`' public subscript.
+/// to `Hashable & Sendable` by ``ThemeModeAssignment`` and ``ThemeModes``.
 nonisolated private struct AnyThemeModeSelection: Hashable, @unchecked Sendable {
     let value: AnyHashable
 
@@ -186,13 +159,15 @@ nonisolated private struct AnyThemeModeSelection: Hashable, @unchecked Sendable 
 nonisolated private enum StandardThemeModeSelection {
     static let colors = ThemeColorModeSelection(light: "light", dark: "dark")
     static let fonts = ThemeFontModeSelection(primary: "default")
-    static let unit = "default"
+    static let units = "default"
 }
 
 /// Selects the raw theme modes to use for a SwiftUI environment.
 ///
 /// Resolution runs on the main actor as part of SwiftUI's environment update,
-/// so conforming application types do not need concurrency or `Hashable` annotations.
+/// so conforming application types do not need concurrency or `Hashable`
+/// annotations. Return built-in modes through ``ThemeModes`` and add custom
+/// families through ``ThemeModeAssignment``.
 @MainActor public protocol ThemeModeResolving {
     /// Identifies state that can change the modes returned for the same context.
     /// Stateless resolvers use the default type identity.
@@ -201,7 +176,7 @@ nonisolated private enum StandardThemeModeSelection {
     /// Returns the family selections for the supplied SwiftUI environment.
     ///
     /// - Parameter context: The environment values available to mode policy.
-    func resolve(in context: ThemeModeContext) -> ResolvedThemeModes
+    func modes(for context: ThemeModeContext) -> ThemeModes
 }
 
 public extension ThemeModeResolving {
@@ -218,29 +193,29 @@ public struct DefaultThemeModeResolver: ThemeModeResolving {
     public init() {}
 
     /// Selects `light` and `dark` colors plus `default` fonts and units.
-    public func resolve(in _: ThemeModeContext) -> ResolvedThemeModes {
-        var modes = ResolvedThemeModes()
-        modes[Theme.Colors.self] = StandardThemeModeSelection.colors
-        modes[Theme.Fonts.self] = StandardThemeModeSelection.fonts
-        modes[Theme.Units.self] = StandardThemeModeSelection.unit
-        return modes
+    public func modes(for _: ThemeModeContext) -> ThemeModes {
+        ThemeModes(
+            colors: StandardThemeModeSelection.colors,
+            fonts: StandardThemeModeSelection.fonts,
+            units: StandardThemeModeSelection.units
+        )
     }
 }
 
 struct AnyThemeModeResolver: Hashable {
     private let identity: AnyHashable
-    private let resolveImplementation: (ThemeModeContext) -> ResolvedThemeModes
+    private let modesImplementation: (ThemeModeContext) -> ThemeModes
 
     init<Resolver: ThemeModeResolving>(_ resolver: Resolver) {
         identity = AnyHashable(ThemeModeResolverIdentity(
             type: ObjectIdentifier(Resolver.self),
             state: resolver.cacheIdentity
         ))
-        resolveImplementation = resolver.resolve
+        modesImplementation = resolver.modes
     }
 
-    func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-        resolveImplementation(context)
+    func modes(for context: ThemeModeContext) -> ThemeModes {
+        modesImplementation(context)
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {

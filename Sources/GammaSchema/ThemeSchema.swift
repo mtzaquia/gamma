@@ -142,7 +142,7 @@ public struct RawTheme: Decodable, Identifiable, Hashable, Sendable {
     package var colors: [String: RawColor]
     package var fonts: [String: RawFont]
     package var units: [String: RawUnit]
-    package let extensionPayloads: [String: ThemeJSONValue]
+    package var extensionPayloads: [String: ThemeJSONValue]
 
     /// Distinguishes separately decoded payloads even when their logical IDs match.
     package let instanceID: UUID
@@ -243,7 +243,7 @@ public struct RawColor: Decodable, Hashable, Sendable {
     /// The color values keyed by mode name.
     public package(set) var modes: [String: Mode]
 
-    public struct Mode: Decodable, Hashable, Sendable {
+    public struct Mode: Codable, Hashable, Sendable {
         public let hex: String
         public let alpha: Double
 
@@ -295,7 +295,7 @@ public struct RawFont: Decodable, Hashable, Sendable {
         self.modes = modes
     }
 
-    public struct Mode: Decodable, Hashable, Sendable {
+    public struct Mode: Codable, Hashable, Sendable {
         public let fontSize: CGFloat
         public let fontName: String
         public let lineHeight: CGFloat
@@ -317,7 +317,7 @@ public struct RawFont: Decodable, Hashable, Sendable {
             self.textCase = textCase
         }
 
-        public struct TextCase: Decodable, Hashable, RawRepresentable, Sendable {
+        public struct TextCase: Codable, Hashable, RawRepresentable, Sendable {
             public var rawValue: String
 
             package static let original = Self(rawValue: "ORIGINAL")

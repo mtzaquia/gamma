@@ -129,28 +129,63 @@ struct ThemeExtensionTests {
     @Test("Registered extensions validate the resolver-selected mode")
     func registeredExtensionModeIsValidated() throws {
         let theme = try decode(Self.themeJSON)
-        var missingSelection = ResolvedThemeModes()
-        missingSelection[Theme.Colors.self] = .init(light: "light", dark: "dark")
-        missingSelection[Theme.Fonts.self] = .init(primary: "default")
-        missingSelection[Theme.Units.self] = "default"
+        let missingSelection = ThemeModes(
+            colors: .init(light: "light", dark: "dark"),
+            fonts: .init(primary: "default"),
+            units: "default"
+        )
         let registration = ThemeExtensionRegistration(Theme.TestGradients.self)
 
         let selectionIssues = theme.validationIssues(
-            resolvedModes: missingSelection,
+            modes: missingSelection,
             extensions: [registration]
         )
         #expect(selectionIssues.contains {
             $0.path == "resolver.gradients"
         })
 
-        missingSelection[Theme.TestGradients.self] = "highContrast"
+        let invalidSelection = ThemeModes(
+            colors: .init(light: "light", dark: "dark"),
+            fonts: .init(primary: "default"),
+            units: "default",
+            extensions: [
+                ThemeModeAssignment(Theme.TestGradients.self, mode: "highContrast"),
+            ]
+        )
         let modeIssues = theme.validationIssues(
-            resolvedModes: missingSelection,
+            modes: invalidSelection,
             extensions: [registration]
         )
         #expect(modeIssues.contains {
             $0.path == "gradients.brand/hero.modes.highContrast"
         })
+    }
+
+    @Test("Extension overrides replace modes and invalidate decoded-token caches")
+    func extensionOverridesReplaceModes() throws {
+        var theme = try decode(Self.themeJSON)
+        let original = try ThemeExtensionTokenCache.tokens(
+            for: Theme.TestGradients.self,
+            in: theme
+        )
+        #expect(original?["brand/hero"]?.modes["light"]?.stops == ["color/start", "color/end"])
+
+        let overrides = RawThemeOverrides(tokens: [
+            try ThemeTokenOverride(
+                Theme.TestGradients.BrandAlias.brandHero,
+                modes: [
+                    "light": TestGradientToken.Mode(stops: ["brand/start", "brand/end"]),
+                    "dark": TestGradientToken.Mode(stops: ["brand/end", "brand/start"]),
+                ]
+            ),
+        ])
+
+        #expect(theme.apply(overrides).isEmpty)
+        let replaced = try ThemeExtensionTokenCache.tokens(
+            for: Theme.TestGradients.self,
+            in: theme
+        )
+        #expect(replaced?["brand/hero"]?.modes["light"]?.stops == ["brand/start", "brand/end"])
     }
 
     private func decode(_ json: String) throws -> RawTheme {
@@ -207,8 +242,12 @@ struct ThemeExtensionTests {
 }
 
 nonisolated public struct TestGradientToken: ThemeExtensionToken {
-    nonisolated public struct Mode: Decodable {
+    nonisolated public struct Mode: Codable, Hashable, Sendable {
         public let stops: [String]
+
+        public init(stops: [String]) {
+            self.stops = stops
+        }
     }
 
     public let name: String
@@ -252,13 +291,18 @@ private struct ExtensionProbe: View {
 }
 
 private struct TestExtensionModeResolver: ThemeModeResolving {
-    func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-        var modes = ResolvedThemeModes()
-        modes[Theme.Colors.self] = .init(light: "light", dark: "dark")
-        modes[Theme.Fonts.self] = .init(primary: "default")
-        modes[Theme.Units.self] = "default"
-        modes[Theme.TestGradients.self] = context.colorScheme == .dark ? "dark" : "light"
-        return modes
+    func modes(for context: ThemeModeContext) -> ThemeModes {
+        ThemeModes(
+            colors: .init(light: "light", dark: "dark"),
+            fonts: .init(primary: "default"),
+            units: "default",
+            extensions: [
+                ThemeModeAssignment(
+                    Theme.TestGradients.self,
+                    mode: context.colorScheme == .dark ? "dark" : "light"
+                ),
+            ]
+        )
     }
 }
 #endif

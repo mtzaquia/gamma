@@ -118,7 +118,7 @@ swift run gamma-codegen \
 - Any path component beginning with `!` excludes that subtree.
 - A folder named `Illustration` or `Illustrations`, case-insensitively, selects illustration aliases.
 - Catalogue folders are otherwise flattened: aliases use the `.imageset` basename, not an Xcode namespace.
-- Duplicate basenames emit one warning listing every path. The last path in deterministic catalogue order is retained for compatibility.
+- Duplicate basenames fail generation and list every conflicting path. Rename one image set so every generated alias is unambiguous.
 
 ## Troubleshooting Xcode
 

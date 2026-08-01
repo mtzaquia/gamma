@@ -33,6 +33,9 @@ nonisolated final class SampleAppUITests: XCTestCase {
         XCTAssertTrue(app.scrollViews["sample.showcase"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["sample.title"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["sample.colors"].exists)
+        XCTAssertTrue(app.staticTexts["sample.gradients"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["sample.gradients.hero"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["sample.gradients.overridden"].exists)
 
         let fontStatus = app.staticTexts["sample.font.status"]
         XCTAssertTrue(fontStatus.label.contains("registered"))

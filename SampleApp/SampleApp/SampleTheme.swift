@@ -43,13 +43,19 @@ enum SampleTheme {
 }
 
 struct SampleThemeModeResolver: ThemeModeResolving {
-    func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
-        ResolvedThemeModes(
+    func modes(for context: ThemeModeContext) -> ThemeModes {
+        ThemeModes(
             colors: ThemeColorModeSelection(light: "day", dark: "night"),
             fonts: context.layoutDirection == .rightToLeft
                 ? ThemeFontModeSelection(primary: "arabic", cascades: ["latin"])
                 : ThemeFontModeSelection(primary: "latin", cascades: ["arabic"]),
-            unit: context.horizontalSizeClass == .regular ? "regular" : "compact"
+            units: context.horizontalSizeClass == .regular ? "regular" : "compact",
+            extensions: [
+                ThemeModeAssignment(
+                    Theme.Gradients.self,
+                    mode: context.colorScheme == .dark ? "night" : "day"
+                ),
+            ]
         )
     }
 }

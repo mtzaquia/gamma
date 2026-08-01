@@ -85,7 +85,6 @@ struct GammaCodegenCommand {
                 inputURLs: inputs,
                 template: template
             )
-            result.warnings.forEach { writeToStandardError($0 + "\n") }
 
             let outputURL = options.outputFileURL
                 ?? options.outputDirectoryURL!.appendingPathComponent(template.defaultOutputFileName)

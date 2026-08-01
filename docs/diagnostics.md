@@ -28,7 +28,7 @@ After registering supplied files, runtime theme validation checks every resolver
 
 ## Resolver validation
 
-A theme can be structurally valid while still lacking modes selected by its resolver. The root `.theme(...)` modifier contains a `@ThemeReader`, so Gamma checks the complete theme against `ResolvedThemeModes` during installation and repeats that check for a new theme or resolution context.
+A theme can be structurally valid while still lacking modes selected by its resolver. The root `.theme(...)` modifier contains a `@ThemeReader`, so Gamma checks the complete theme against `ThemeModes` during installation and repeats that check for a new theme or resolution context.
 
 Issues are consolidated by path and reported once for each theme, mode selection, and override identity. Repeated body evaluation does not repeat the same warning.
 
@@ -73,5 +73,7 @@ struct ExampleApp: App {
 | `.trace` | Normal logs plus successful theme validation and font registration. |
 
 Logs use the `dev.gamma` subsystem and `Gamma` category.
+Override success logs contain family token counts, including one combined count
+for extension tokens. They do not include token keys or mode payload values.
 
 Next: [Getting started](getting-started.md)

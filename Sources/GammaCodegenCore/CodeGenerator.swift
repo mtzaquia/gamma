@@ -23,10 +23,14 @@
 import GammaSchema
 import Foundation
 
+/// A generated Swift declaration surface.
 public enum GenerationTemplate: String, CaseIterable, Sendable {
+    /// Theme-resource and typed token-alias declarations.
     case tokens
+    /// Asset and illustration alias declarations.
     case assets
 
+    /// The default filename for generated source using this template.
     public var defaultOutputFileName: String {
         switch self {
         case .tokens: "Theme+Tokens.generated.swift"
@@ -35,21 +39,29 @@ public enum GenerationTemplate: String, CaseIterable, Sendable {
     }
 }
 
+/// The Swift source produced by one generator invocation.
 public struct GenerationOutput: Sendable {
+    /// The complete generated Swift source.
     public let source: String
-    public let warnings: [String]
 
-    public init(source: String, warnings: [String] = []) {
+    /// Creates a generation result from rendered Swift source.
+    ///
+    /// - Parameter source: The complete generated Swift source.
+    public init(source: String) {
         self.source = source
-        self.warnings = warnings
     }
 }
 
+/// A failure that prevents Gamma from producing an unambiguous Swift API.
 public enum CodeGenerationError: Error, LocalizedError, Equatable {
+    /// A source name cannot be represented as a Swift identifier.
     case invalidIdentifier(source: String)
+    /// Multiple source names produce the same Swift identifier in one scope.
     case identifierCollision(scope: String, generated: String, sources: [String])
+    /// The supplied files or options do not satisfy the generation contract.
     case invalidInput(String)
 
+    /// A description suitable for command-line diagnostics.
     public var errorDescription: String? {
         switch self {
         case let .invalidIdentifier(source):
@@ -62,7 +74,15 @@ public enum CodeGenerationError: Error, LocalizedError, Equatable {
     }
 }
 
+/// Generates Gamma token and asset declaration surfaces.
 public enum GammaCodeGenerator {
+    /// Generates declarations from one input.
+    ///
+    /// - Parameters:
+    ///   - inputURL: A theme JSON file or asset catalogue accepted by `template`.
+    ///   - template: The declarations to generate.
+    /// - Returns: The rendered Swift source.
+    /// - Throws: ``CodeGenerationError`` when the input is invalid or ambiguous.
     public static func generate(
         inputURL: URL,
         template: GenerationTemplate
@@ -101,8 +121,7 @@ public enum GammaCodeGenerator {
                 source: try renderAssets(
                     assets: catalogue.assets,
                     illustrations: catalogue.illustrations
-                ),
-                warnings: catalogue.warnings
+                )
             )
         }
     }
@@ -314,7 +333,6 @@ private extension GammaCodeGenerator {
     struct AssetCatalogue {
         let assets: [String: Asset]
         let illustrations: [String: Asset]
-        let warnings: [String]
     }
 
     static func decodeDocument(at url: URL) throws -> ThemeDocument {
@@ -357,7 +375,6 @@ private extension GammaCodeGenerator {
         var illustrations: [String: Asset] = [:]
         var assetPaths: [String: [String]] = [:]
         var illustrationPaths: [String: [String]] = [:]
-        var warnings: [String] = []
 
         for inputURL in inputURLs {
             let input: AssetCatalogue
@@ -367,12 +384,10 @@ private extension GammaCodeGenerator {
                 let document = try decodeDocument(at: inputURL)
                 input = AssetCatalogue(
                     assets: document.assets,
-                    illustrations: document.illustrations,
-                    warnings: []
+                    illustrations: document.illustrations
                 )
             }
 
-            warnings.append(contentsOf: input.warnings)
             for (name, asset) in input.assets.sorted(by: { $0.key < $1.key }) {
                 assets[name] = asset
                 assetPaths[name, default: []].append(asset.path ?? "\(inputURL.path)#assets.\(name)")
@@ -385,12 +400,11 @@ private extension GammaCodeGenerator {
             }
         }
 
-        warnings.append(contentsOf: duplicateWarnings(pathsByBasename: assetPaths, kind: "asset"))
-        warnings.append(contentsOf: duplicateWarnings(pathsByBasename: illustrationPaths, kind: "illustration"))
+        try validateUniqueBasenames(pathsByBasename: assetPaths, kind: "asset")
+        try validateUniqueBasenames(pathsByBasename: illustrationPaths, kind: "illustration")
         return AssetCatalogue(
             assets: assets,
-            illustrations: illustrations,
-            warnings: Array(Set(warnings)).sorted()
+            illustrations: illustrations
         )
     }
 
@@ -448,9 +462,9 @@ private extension GammaCodeGenerator {
             }
         }
 
-        let warnings = duplicateWarnings(pathsByBasename: assetPaths, kind: "asset")
-            + duplicateWarnings(pathsByBasename: illustrationPaths, kind: "illustration")
-        return AssetCatalogue(assets: assets, illustrations: illustrations, warnings: warnings)
+        try validateUniqueBasenames(pathsByBasename: assetPaths, kind: "asset")
+        try validateUniqueBasenames(pathsByBasename: illustrationPaths, kind: "illustration")
+        return AssetCatalogue(assets: assets, illustrations: illustrations)
     }
 
     static func appendAsset(
@@ -463,20 +477,23 @@ private extension GammaCodeGenerator {
         paths[basename, default: []].append(path)
     }
 
-    static func duplicateWarnings(
+    static func validateUniqueBasenames(
         pathsByBasename: [String: [String]],
         kind: String
-    ) -> [String] {
-        pathsByBasename
+    ) throws {
+        let duplicates = pathsByBasename
             .filter { $0.value.count > 1 }
             .sorted { $0.key < $1.key }
-            .map { basename, paths in
-                let pathList = paths.map { "  - \($0)" }.joined(separator: "\n")
-                return """
-                warning: duplicate \(kind) basename \(basename.debugDescription); keeping the last catalogue entry:
-                \(pathList)
-                """
-            }
+        guard let duplicate = duplicates.first else { return }
+
+        let pathList = duplicate.value.sorted().map { "  - \($0)" }.joined(separator: "\n")
+        throw CodeGenerationError.invalidInput(
+            """
+            Duplicate \(kind) basename \(duplicate.key.debugDescription):
+            \(pathList)
+            Rename one entry so every generated alias is unambiguous.
+            """
+        )
     }
 
     static func relativeComponents(of url: URL, under rootURL: URL) -> [String] {
@@ -543,7 +560,7 @@ private extension GammaCodeGenerator {
             writer.blankLine()
             writer.block("public extension Theme") { writer in
                 writer.line("/// Identifies custom tokens under the \(swiftStringLiteral(family)) theme key.")
-                writer.block("nonisolated enum \(familyType)") { writer in
+                writer.block("nonisolated enum \(familyType): Sendable") { writer in
                     writer.line("/// The top-level JSON key for this token family.")
                     writer.line("nonisolated public static let key = \(swiftStringLiteral(family))")
                 }

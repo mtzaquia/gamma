@@ -94,12 +94,12 @@ Aliases are also `Codable` and decode from a plain token-key string:
 
 ```swift
 let alias = try JSONDecoder().decode(
-  Theme.Alias<Theme.Colors>.self,
-  from: Data(#""legacy""#.utf8)
+  Theme.Alias<Theme.Fonts>.self,
+  from: Data(#""body""#.utf8)
 )
 ```
 
-The complete string is the token key. Grouped aliases decode from ordinary strings such as `"text/primary"`; `tokenGroup` and `tokenName` expose the two components. The schema requires that the first component exactly match the token's `group` field. An empty group uses a slash-free key such as `"legacy"` and remains on the family scope rather than receiving an artificial `UngroupedAlias`.
+The complete string is the token key. Grouped aliases decode from ordinary strings such as `"text/primary"`; `tokenGroup` and `tokenName` expose the two components. The schema requires that the first component exactly match the token's `group` field. An empty group uses a slash-free key such as `"body"` and remains on the family scope rather than receiving an artificial `UngroupedAlias`.
 
 ## Colors
 

@@ -245,17 +245,15 @@ private struct LifecycleObservation {
 private struct CountingModeResolver: ThemeModeResolving {
     let counter: ResolutionCounter
 
-    func resolve(in context: ThemeModeContext) -> ResolvedThemeModes {
+    func modes(for context: ThemeModeContext) -> ThemeModes {
         counter.increment()
-        var modes = ResolvedThemeModes()
-        modes[Theme.Colors.self] = .init(light: "day", dark: "night")
-        modes[Theme.Fonts.self] = context.layoutDirection == .rightToLeft
-            ? .init(primary: "arabic", cascades: ["latin"])
-            : .init(primary: "latin", cascades: ["arabic"])
-        modes[Theme.Units.self] = context.horizontalSizeClass == .regular
-            ? "regular"
-            : "compact"
-        return modes
+        return ThemeModes(
+            colors: .init(light: "day", dark: "night"),
+            fonts: context.layoutDirection == .rightToLeft
+                ? .init(primary: "arabic", cascades: ["latin"])
+                : .init(primary: "latin", cascades: ["arabic"]),
+            units: context.horizontalSizeClass == .regular ? "regular" : "compact"
+        )
     }
 }
 

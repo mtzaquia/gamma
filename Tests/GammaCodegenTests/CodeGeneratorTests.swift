@@ -60,8 +60,8 @@ struct CodeGeneratorTests {
         }
     }
 
-    @Test("Duplicate asset basenames warn with both paths and keep one alias")
-    func duplicateAssetsWarnAndKeepLast() throws {
+    @Test("Duplicate asset basenames fail with every conflicting path")
+    func duplicateAssetsFail() throws {
         try withTemporaryDirectory { directory in
             let catalogue = directory.appendingPathComponent("Assets.xcassets", isDirectory: true)
             let first = catalogue.appendingPathComponent("Actions/close.imageset", isDirectory: true)
@@ -71,16 +71,19 @@ struct CodeGeneratorTests {
             try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
             try FileManager.default.createDirectory(at: third, withIntermediateDirectories: true)
 
-            let output = try GammaCodeGenerator.generate(
-                inputURL: catalogue,
-                template: .assets
-            )
-
-            #expect(output.warnings.count == 1)
-            #expect(output.warnings[0].contains(first.path))
-            #expect(output.warnings[0].contains(second.path))
-            #expect(output.warnings[0].contains(third.path))
-            #expect(output.source.components(separatedBy: "static let close").count - 1 == 1)
+            do {
+                _ = try GammaCodeGenerator.generate(
+                    inputURL: catalogue,
+                    template: .assets
+                )
+                Issue.record("Expected duplicate basenames to fail generation")
+            } catch {
+                let message = error.localizedDescription
+                #expect(message.contains("Duplicate asset basename \"close\""))
+                #expect(message.contains(first.path))
+                #expect(message.contains(second.path))
+                #expect(message.contains(third.path))
+            }
         }
     }
 
@@ -221,7 +224,7 @@ struct CodeGeneratorTests {
 
             let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
-            #expect(source.contains("nonisolated enum Gradients"))
+            #expect(source.contains("nonisolated enum Gradients: Sendable"))
             #expect(source.contains(#"nonisolated public static let key = "gradients""#))
             #expect(source.contains("nonisolated enum BrandGroup: ThemeTokenGroup"))
             #expect(source.contains("typealias BrandAlias = Theme.Alias<BrandGroup>"))

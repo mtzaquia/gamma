@@ -37,6 +37,7 @@ struct ShowcaseView: View {
                 introduction
                 directionControls
                 colorSection
+                gradientSection
                 assetsSection
                 typographySection
                 spacingSection
@@ -114,6 +115,34 @@ struct ShowcaseView: View {
                 )
                 typographyRow("Mixed-script cascade", sample: "Gamma يدعم النص العربي واللاتيني.", font: .typographyBody)
                 typographyRow("Caption", sample: "Supporting context", font: .typographyCaption)
+            }
+        }
+    }
+
+    private var gradientSection: some View {
+        VStack(alignment: .leading, spacing: theme.unit(.spacingSmall)) {
+            SectionTitle("Gradient extension")
+                .accessibilityIdentifier(SampleAppAccessibility.gradientsSection)
+
+            RoundedRectangle(cornerRadius: theme.unit(.radiusCard))
+                .fill(theme.gradient(.brandHero))
+                .frame(height: 132)
+                .overlay(alignment: .bottomLeading) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Brand hero")
+                            .font(theme.font(.typographyDisplay))
+                        Text("Resolved through Theme.Gradients.BrandAlias")
+                            .font(theme.font(.typographyCaption))
+                    }
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
+                    .padding(theme.unit(.spacingMedium))
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier(SampleAppAccessibility.heroGradient)
+
+            WithThemeOverrides(overrides: SampleTheme.gradientOverrides) {
+                OverriddenGradientPreview()
             }
         }
     }
@@ -231,6 +260,24 @@ struct ShowcaseView: View {
                 .foregroundStyle(theme.color(.textSecondary))
                 .monospacedDigit()
         }
+    }
+}
+
+private struct OverriddenGradientPreview: View {
+    @ThemeReader private var theme
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: theme.unit(.radiusCard))
+            .fill(theme.gradient(.brandHero))
+            .frame(height: 72)
+            .overlay(alignment: .bottomLeading) {
+                Text("Scoped gradient override")
+                    .font(theme.font(.typographyCaption))
+                    .foregroundStyle(theme.color(.textPrimary))
+                    .padding(theme.unit(.spacingSmall))
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(SampleAppAccessibility.overriddenGradient)
     }
 }
 
