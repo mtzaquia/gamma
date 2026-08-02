@@ -2,7 +2,7 @@
 
 The sample app is a small component catalogue that exercises the complete Gamma path: build-time alias generation, bundled theme decoding, mode resolution, custom font registration, and SwiftUI token use.
 
-Open `SampleApp.xcodeproj` and run the shared `SampleApp` scheme. The library supports iOS 16+, while this sample project currently targets iOS 17.5+.
+Open `SampleApp.xcodeproj` and run the shared `SampleApp` scheme. The library supports iOS 17+ and macOS 14+, while this sample project currently targets iOS 17.5+.
 
 ## What to try
 

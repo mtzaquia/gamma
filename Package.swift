@@ -1,4 +1,4 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -11,7 +11,7 @@ let defaultSwiftSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "Gamma",
-    platforms: [.iOS(.v16)],
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "Gamma", targets: ["Gamma"]),
         .executable(name: "gamma-codegen", targets: ["gamma-codegen"]),

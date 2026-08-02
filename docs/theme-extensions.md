@@ -51,7 +51,7 @@ public extension Theme.Alias where Scope == Theme.Gradients.BrandGroup {
 
 Accessor and group names may repeat across families because each family owns its namespace. A `Brand` gradient group and a `Brand` color group therefore generate `Theme.Gradients.BrandAlias` and `Theme.Colors.BrandAlias` without colliding.
 
-Tokens whose `group` is empty receive accessors on the family scope `Theme.Alias<Theme.Gradients>`. Gamma does not generate an `UngroupedAlias`, so components cannot treat the absence of a group as a semantic restriction.
+Tokens whose `group` is empty receive accessors on the family scope `Theme.Alias<Theme.Gradients>`.
 
 The roots `id`, `defaults`, `colors`, `fonts`, `units`, `assets`, and `illustrations` are reserved. Empty custom dictionaries do not generate declarations. Multiple theme variants in one target must expose the same non-empty custom families and token keys.
 
@@ -79,7 +79,7 @@ extension Theme.Gradients: ThemeExtension {
 }
 ```
 
-Generated family markers declare `Sendable` in generated source, so adding `ThemeExtension` conformance does not create a retroactive concurrency conformance. Mark the token type, its protocol-witness properties, and the `Token` typealias public because they satisfy requirements on that public family. A public mode initializer is also needed when other source files construct values by hand. In a main-actor-by-default target, declare the token and mode types `nonisolated` so `Codable` synthesis remains available. `Encodable` is only required when the app constructs typed overrides for this family; decoding and resolution require `Decodable`.
+Mark the token type, its protocol-witness properties, and the `Token` typealias public because they satisfy requirements on that public family. A public mode initializer is also needed when other source files construct values by hand. In a main-actor-by-default target, declare the token and mode types `nonisolated` so `Codable` synthesis remains available. `Encodable` is only required when the app constructs typed overrides for this family; decoding and resolution require `Decodable`.
 Because the generated alias is constrained to `ThemeExtension`, adding a custom family also requires this conformance in the consumer target.
 
 ## Select a mode

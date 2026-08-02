@@ -1,8 +1,8 @@
 # 🌅 Gamma
 
 [![Tests](https://github.com/mtzaquia/gamma/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mtzaquia/gamma/actions/workflows/tests.yml)
-[![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange.svg)](https://www.swift.org/)
-[![iOS 16+](https://img.shields.io/badge/iOS-16%2B-blue.svg)](https://github.com/mtzaquia/gamma/blob/main/Package.swift)
+[![Swift 6.3](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://www.swift.org/)
+[![iOS 17+](https://img.shields.io/badge/iOS-17%2B-blue.svg)](https://github.com/mtzaquia/gamma/blob/main/Package.swift)
 ![Class A](https://img.shields.io/badge/class-A-gold)
 
 `Gamma` is a battle-tested, streamlined design system foundation for your apps.
@@ -13,7 +13,7 @@ Describe colors, typography, and units in one JSON theme. Decide how its modes m
 - Typography that scales with Dynamic Type and cascades across scripts.
 - Units that can adapt to size class or any policy your design system names.
 - Scoped token overrides without replacing the installed theme.
-- Bundled or server-provided themes, with registration of app-supplied local font files.
+- Bundled or server-provided themes, with registration of app-supplied font files.
 - Swift-native generation through Xcode, SwiftPM, or a command-line executable.
 
 ```swift
@@ -33,13 +33,13 @@ var body: some View {
 
 ## Install
 
-Gamma 1.0.2 supports iOS 16+ and uses the Swift 6.2 package format.
+Gamma 2.0.0 supports iOS 17+ and macOS 14+, and uses the Swift 6.2 package format.
 
 ```swift
 dependencies: [
   .package(
     url: "https://github.com/mtzaquia/gamma.git",
-    from: "1.0.2"
+    from: "2.0.0"
   ),
 ]
 ```
