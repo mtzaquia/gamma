@@ -38,11 +38,13 @@ struct GammaSampleApp: App {
 }
 
 private struct SampleRootView: View {
-    @State private var layoutDirection = SampleAppUITesting.initialLayoutDirection
-
     var body: some View {
         NavigationStack {
-            ShowcaseView(layoutDirection: $layoutDirection)
+            if let scenario = SampleAppUITesting.initialScenario {
+                ScenarioDestination(scenario: scenario)
+            } else {
+                CatalogView()
+            }
         }
         .theme(
             .sampleTheme,
@@ -50,7 +52,6 @@ private struct SampleRootView: View {
             extensions: [ThemeExtensionRegistration(Theme.Gradients.self)],
             fontURLs: SampleTheme.fontURLs
         )
-        .environment(\.layoutDirection, layoutDirection)
         .transaction { transaction in
             if SampleAppUITesting.isEnabled {
                 transaction.animation = nil

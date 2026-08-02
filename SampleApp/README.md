@@ -1,18 +1,20 @@
 # Gamma Sample App
 
-The sample app is a small component catalogue that exercises the complete Gamma path: build-time alias generation, bundled theme decoding, mode resolution, custom font registration, and SwiftUI token use.
+The sample app is a guided catalogue of five focused experiments. Together they exercise the complete Gamma path: build-time alias generation, bundled theme decoding, mode resolution, custom font registration, consumer-defined token families, scoped overrides, and SwiftUI token use.
 
 Open `SampleApp.xcodeproj` and run the shared `SampleApp` scheme. The library supports iOS 17+ and macOS 14+, while this sample project currently targets iOS 17.5+.
 
-## What to try
+## Scenario catalogue
 
-- Switch between LTR and RTL. The active body face changes from `NotoSans-Regular` to `NotoSansArabic-Regular`, with the other face retained as a cascade.
-- Change the simulator appearance. Colors resolve from the theme's `day` and `night` modes.
-- Run on an iPhone and an iPad, or otherwise change horizontal size class. Spacing and radius values use compact and regular unit modes respectively.
-- Inspect typography, color, gradient, and responsive-unit sections built entirely from generated aliases.
-- Inspect the theme spark and token-flow artwork loaded through generated icon and illustration aliases.
+| User promise | Public API | Primary action | Visible outcome | Important alternate state | UI-test assertion |
+| --- | --- | --- | --- | --- | --- |
+| Colors and custom families follow appearance | `ThemeModeResolving`, `ThemeProxy.color(_:)`, `ThemeProxy.resolve(_:)` | Switch Light/Dark | Palette and brand gradient resolve day/night modes in place | Both appearances | Status identifies the selected modes and both previews remain present |
+| Typography adapts to readers and scripts | `.theme(..., fontURLs:)`, `ThemeFontModeSelection`, `DSText` | Switch writing direction and text size | Primary Noto face, cascade direction, and scaled metrics update | RTL and accessibility Dynamic Type | Status reports the Arabic face and accessibility size; bundled faces are registered |
+| Units adapt without changing component code | `ThemeProxy.unit(_:)` | Switch Compact/Regular | Spacing bars, padding, and corner radius resolve new values | Regular size class | Status changes from `8 / 16 / 24` to `12 / 24 / 36` points |
+| Overrides remain scoped | `ThemeTokenOverride`, `ThemeOverrides`, `WithThemeOverrides` | Apply campaign override | Accent, radius, and custom gradient change only inside one subtree | Override removed again | Status moves active and inactive while the base preview remains |
+| Generated resources stay typed | `ThemeResource`, `Theme.IconAlias`, `Theme.AssetAlias` | Select Icon/Illustration | Generated aliases load their matching catalogue artwork | Both asset kinds | Each generated image appears after selection |
 
-`SampleThemeModeResolver` owns those mappings. The theme itself only declares named modes, including the custom `gradients` family. The app registers `Theme.Gradients`, decodes its stop aliases through `GradientToken`, and renders the generated `.brandHero` alias as a SwiftUI `LinearGradient`. The second gradient preview uses `ThemeTokenOverride` and `WithThemeOverrides` to replace that extension token inside one subtree.
+`SampleThemeModeResolver` owns the appearance, direction, size-class, and custom-family mappings. The theme itself only declares named modes. The app registers `Theme.Gradients`, decodes its stop aliases through `GradientToken`, and renders the generated `.brandHero` alias as a SwiftUI `LinearGradient`.
 
 ## Code generation
 
@@ -33,13 +35,31 @@ The bundled Noto Sans and Noto Sans Arabic files come from the official [Noto Fo
 
 The root installs the generated theme resource and both bundled font URLs in one call: `.theme(ThemeResource.sampleTheme, modeResolver: SampleThemeModeResolver(), fontURLs: SampleTheme.fontURLs)`. Naming `ThemeResource` explicitly keeps Swift's overload resolution unambiguous while the declaration itself remains build-plug-in generated. Gamma caches the decoded resource, discovers the PostScript names, registers each face before rendering, and avoids repeating successful work during later body evaluations.
 
-## UI test
+## Deterministic UI tests
 
-The shared UI-test scheme verifies that the catalogue launches, fonts register, RTL changes the resolver's primary face, and both generated asset aliases load images.
+The shared UI-test scheme keeps a catalogue smoke test and launches every scenario directly for focused behavior checks. Test-only routing is enabled only when `UI_TESTING` is present; normal app launches always open the catalogue.
+
+Available direct paths are:
+
+- `--scenario=appearance-modes`
+- `--scenario=adaptive-typography`
+- `--scenario=responsive-units`
+- `--scenario=scoped-overrides`
+- `--scenario=generated-resources`
+
+For deterministic visual inspection, combine a direct scenario with its relevant alternate-state seeds:
+
+- `--appearance=dark`
+- `--direction=rtl --type-size=accessibility`
+- `--width=regular`
+- `--overrides=active`
+- `--resource=illustration`
+
+Seeds are ignored unless `UI_TESTING` is also present.
 
 ```sh
 xcodebuildmcp simulator test \
   --project-path SampleApp/SampleApp.xcodeproj \
   --scheme SampleAppUITests \
-  --simulator-name "iPhone 15 Pro"
+  --simulator-name "iPhone 16 Pro"
 ```

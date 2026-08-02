@@ -105,7 +105,7 @@ Server themes use the same runtime path: the app downloads and stores the JSON a
 
 ## Sample app
 
-Open [`SampleApp/SampleApp.xcodeproj`](SampleApp/SampleApp.xcodeproj) to explore day/night colors, LTR and RTL font cascading, runtime font registration, responsive units, and build-time token and asset aliases.
+Open [`SampleApp/SampleApp.xcodeproj`](SampleApp/SampleApp.xcodeproj) to explore focused scenarios for appearance and script modes, Dynamic Type, responsive units, scoped overrides, custom token families, and build-time token and asset aliases.
 
 ## License
 

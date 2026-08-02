@@ -21,6 +21,7 @@
 //
 
 import Gamma
+import GammaSchema
 import SwiftUI
 
 /// The sample app's decoded gradient token payload.
@@ -45,19 +46,30 @@ nonisolated public struct GradientToken: ThemeExtensionToken {
 }
 
 extension SampleTheme {
-    static let gradientOverrides: ThemeOverrides = {
+    static let campaignOverrides: ThemeOverrides = {
         do {
             return ThemeOverrides(tokens: [
                 try ThemeTokenOverride(
+                    Theme.Colors.BrandAlias.brandAccent,
+                    modes: [
+                        "day": .init(hex: "#D63F77", alpha: 1),
+                        "night": .init(hex: "#FF82AD", alpha: 1),
+                    ]
+                ),
+                try ThemeTokenOverride(
+                    Theme.Units.RadiusAlias.radiusCard,
+                    modes: ["compact": 8, "regular": 12]
+                ),
+                try ThemeTokenOverride(
                     Theme.Gradients.BrandAlias.brandHero,
                     modes: [
-                        "day": GradientToken.Mode(stops: ["surface/background", "brand/accent"]),
-                        "night": GradientToken.Mode(stops: ["brand/accent", "surface/background"]),
+                        "day": GradientToken.Mode(stops: ["brand/accent", "surface/surface"]),
+                        "night": GradientToken.Mode(stops: ["surface/surface", "brand/accent"]),
                     ]
                 ),
             ])
         } catch {
-            preconditionFailure("Could not create the sample gradient override: \(error)")
+            preconditionFailure("Could not create the sample campaign overrides: \(error)")
         }
     }()
 }
