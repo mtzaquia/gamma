@@ -123,6 +123,8 @@ struct CodeGeneratorTests {
             let second = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
             #expect(first == second)
+            #expect(first.contains("Scope == Theme.Units"))
+            #expect(first.contains("@_disfavoredOverload"))
             #expect(first.contains("typealias SpacingAlias = Theme.Alias<SpacingGroup>"))
             #expect(first.contains("static var spacingSmall"))
             #expect(first.contains("typealias RadiusAlias = Theme.Alias<RadiusGroup>"))
@@ -172,6 +174,33 @@ struct CodeGeneratorTests {
             #expect(source.contains("Scope == Theme.Units"))
             #expect(source.contains(#"static var body: Self { Self(rawValue: "body") }"#))
             #expect(source.contains(#"static var unit: Self { Self(rawValue: "unit") }"#))
+            #expect(!source.contains("@_disfavoredOverload"))
+        }
+    }
+
+    @Test("Grouped aliases generate composable family and restricted group members")
+    func groupedAliasesGenerateFamilyAndGroupMembers() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let document = validThemeDocument(colors: [
+                "core/black": colorToken(group: "core"),
+                "onSurface/link": colorToken(group: "onSurface"),
+            ])
+            try write(document, to: input)
+
+            let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
+
+            #expect(source.contains("Scope == Theme.Colors"))
+            #expect(source.contains("Scope == Theme.Colors.CoreGroup"))
+            #expect(source.contains("Scope == Theme.Colors.OnSurfaceGroup"))
+            #expect(source.components(separatedBy: "static var coreBlack").count - 1 == 2)
+            #expect(source.components(separatedBy: "static var onSurfaceLink").count - 1 == 2)
+            #expect(source.contains(
+                "@_disfavoredOverload\n    static var coreBlack: Self"
+            ))
+            #expect(source.contains(
+                "@_disfavoredOverload\n    static var onSurfaceLink: Self"
+            ))
         }
     }
 
@@ -228,6 +257,7 @@ struct CodeGeneratorTests {
             #expect(source.contains(#"nonisolated public static let key = "gradients""#))
             #expect(source.contains("nonisolated enum BrandGroup: ThemeTokenGroup"))
             #expect(source.contains("typealias BrandAlias = Theme.Alias<BrandGroup>"))
+            #expect(source.contains("Scope == Theme.Gradients"))
             #expect(source.contains("Scope == Theme.Gradients.BrandGroup"))
             #expect(source.contains(#"static var brandHero: Self { Self(rawValue: "brand/hero") }"#))
             #expect(source.contains(#"static var brandSomething: Self { Self(rawValue: "brand/something") }"#))
@@ -246,7 +276,7 @@ struct CodeGeneratorTests {
 
             let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
 
-            #expect(source.components(separatedBy: "static var brandShared").count - 1 == 2)
+            #expect(source.components(separatedBy: "static var brandShared").count - 1 == 4)
             #expect(source.contains("Scope == Theme.Gradients.BrandGroup"))
             #expect(source.contains("Scope == Theme.Shadows.BrandGroup"))
         }
@@ -351,7 +381,7 @@ struct CodeGeneratorTests {
                 template: .tokens
             )
 
-            #expect(output.source.components(separatedBy: #"Self(rawValue: "test/default")"#).count - 1 == 1)
+            #expect(output.source.components(separatedBy: #"Self(rawValue: "test/default")"#).count - 1 == 2)
             #expect(output.source.contains("static let day = Self(fileName: \"Day.theme.json\")"))
             #expect(output.source.contains("static let night = Self(fileName: \"Night.theme.json\")"))
         }

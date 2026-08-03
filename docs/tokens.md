@@ -24,6 +24,23 @@ Generated aliases are typed by both their value family and semantic group. They 
 
 Consumer-defined families can use the same alias-to-value pattern through a small app-owned proxy extension. See [Theme extensions](theme-extensions.md).
 
+## Compose tokens across groups
+
+Use a family-scoped alias when application logic can select tokens from different semantic groups. Every grouped token also generates a family-scoped member, so the switch remains exhaustive and uses generated names throughout:
+
+```swift
+var foregroundToken: Theme.Alias<Theme.Colors> {
+  switch variant {
+  case .primary:
+    .coreBlack
+  case .secondary:
+    .onSurfaceLink
+  }
+}
+```
+
+The family determines how Gamma resolves the token, while the absence of a group restriction lets the property select any color token in that family.
+
 ## Restrict component token parameters
 
 Every non-empty group generates an alias nested under its family. A component can require those generated types while Gamma's resolver remains generic across all groups in the family:
@@ -84,7 +101,7 @@ TokenCard(
 
 Both `.spacingMedium` and `.radiusCard` resolve through `theme.unit(...)`, but exchanging them in this initializer is a compile-time error. The group restricts the component contract; the owning family selects the resolver and output type. Keeping the group in the accessor also disambiguates direct calls when, for example, both `spacing/medium` and `size/medium` exist.
 
-An empty `group` produces no artificial group type. Its accessors use the family scope. For example, a font token keyed by `body` with `group: ""` generates `.body` on `Theme.Alias<Theme.Fonts>`:
+An empty `group` produces no artificial group type. Its accessors use only the family scope. For example, a font token keyed by `body` with `group: ""` generates `.body` on `Theme.Alias<Theme.Fonts>`:
 
 ```swift
 let body: Theme.Alias<Theme.Fonts> = .body

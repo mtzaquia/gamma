@@ -35,6 +35,11 @@ nonisolated private enum TextFontGroup: ThemeTokenGroup {
     static let name = "text"
 }
 
+nonisolated private enum OnSurfaceColorGroup: ThemeTokenGroup {
+    typealias Family = Theme.Colors
+    static let name = "onSurface"
+}
+
 private typealias SurfaceColorAlias = Theme.Alias<SurfaceColorGroup>
 private typealias TextFontAlias = Theme.Alias<TextFontGroup>
 
@@ -42,13 +47,35 @@ public extension Theme.Alias where Scope == Theme.Colors {
     static var canvas: Self {
         Self(rawValue: "canvas")
     }
+
+    @_disfavoredOverload
+    static var surfacePrimary: Self {
+        Self(rawValue: "surface/primary")
+    }
+
+    @_disfavoredOverload
+    static var onSurfaceLink: Self {
+        Self(rawValue: "onSurface/link")
+    }
+}
+
+private extension Theme.Alias where Scope == SurfaceColorGroup {
+    static var surfacePrimary: Self {
+        Self(rawValue: "surface/primary")
+    }
+}
+
+private extension Theme.Alias where Scope == OnSurfaceColorGroup {
+    static var onSurfaceLink: Self {
+        Self(rawValue: "onSurface/link")
+    }
 }
 
 @Suite("Public API contracts")
 struct PublicAPIContractTests {
     @Test("Alias groups retain their family and raw token key")
     func aliasesRetainGroupAndFamily() {
-        let color = SurfaceColorAlias(rawValue: "surface/primary")
+        let color: SurfaceColorAlias = .surfacePrimary
         let font = TextFontAlias(rawValue: "text/body")
         let familyColor: Theme.Alias<Theme.Colors> = .canvas
 
@@ -57,6 +84,17 @@ struct PublicAPIContractTests {
         #expect(SurfaceColorAlias.AliasScope.name == "surface")
         #expect(TextFontAlias.AliasScope.name == "text")
         #expect(familyColor.rawValue == "canvas")
+    }
+
+    @Test("Grouped members compose through family aliases without weakening inference")
+    func groupedMembersComposeThroughFamilyAliases() {
+        let primary = foregroundToken(for: .primary)
+        let secondary = foregroundToken(for: .secondary)
+
+        #expect(primary.rawValue == "surface/primary")
+        #expect(secondary.rawValue == "onSurface/link")
+        #expect(inferredColorScope(.surfacePrimary) == "surface")
+        #expect(inferredColorScope(.onSurfaceLink) == "onSurface")
     }
 
     @Test("Aliases decode from and encode to a plain token-key string")
@@ -86,5 +124,25 @@ struct PublicAPIContractTests {
         #expect(modes[Theme.Units.self] == "compact")
     }
 
+}
+
+private enum ColorVariant {
+    case primary
+    case secondary
+}
+
+private func foregroundToken(for variant: ColorVariant) -> Theme.Alias<Theme.Colors> {
+    switch variant {
+    case .primary:
+        .surfacePrimary
+    case .secondary:
+        .onSurfaceLink
+    }
+}
+
+private func inferredColorScope<Scope: ThemeAliasScope>(
+    _ alias: Theme.Alias<Scope>
+) -> String? where Scope.Family == Theme.Colors {
+    Scope.groupName
 }
 #endif

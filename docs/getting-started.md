@@ -9,8 +9,8 @@ Add Gamma to the app target. For a Swift package target, include the library and
 ```swift
 dependencies: [
   .package(
-    url: "https://github.com/mtzaquia/Gamma.git",
-    from: "1.0.0"
+    url: "https://github.com/mtzaquia/gamma.git",
+    exact: "2.0.0-beta.3"
   ),
 ],
 targets: [
@@ -29,7 +29,7 @@ targets: [
 ]
 ```
 
-For an Xcode app target, add `https://github.com/mtzaquia/Gamma.git` with the **Up to Next Major Version** rule starting at `1.0.0`, then:
+For an Xcode app target, add `https://github.com/mtzaquia/gamma.git` with the exact `2.0.0-beta.3` requirement, then:
 
 1. Add the `Gamma` library product to the target.
 2. Add the theme file with target membership enabled so it is copied into the app bundle.

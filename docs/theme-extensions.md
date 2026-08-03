@@ -33,6 +33,12 @@ public extension Theme {
   }
 }
 
+public extension Theme.Alias where Scope == Theme.Gradients {
+  static var brandHero: Self {
+    Self(rawValue: "brand/hero")
+  }
+}
+
 public extension Theme.Gradients {
   nonisolated enum BrandGroup: ThemeTokenGroup {
     public typealias Family = Theme.Gradients
@@ -51,7 +57,9 @@ public extension Theme.Alias where Scope == Theme.Gradients.BrandGroup {
 
 Accessor and group names may repeat across families because each family owns its namespace. A `Brand` gradient group and a `Brand` color group therefore generate `Theme.Gradients.BrandAlias` and `Theme.Colors.BrandAlias` without colliding.
 
-Tokens whose `group` is empty receive accessors on the family scope `Theme.Alias<Theme.Gradients>`.
+Grouped tokens receive accessors on both the family scope and their generated group alias. Use `Theme.Alias<Theme.Gradients>` to compose tokens across gradient groups and `Theme.Gradients.BrandAlias` to restrict a component parameter to brand gradients. Both forms are accepted by `ThemeProxy.resolve(_:)` and app-owned helpers constrained to the `Theme.Gradients` family.
+
+Tokens whose `group` is empty receive only a family-scoped accessor on `Theme.Alias<Theme.Gradients>`.
 
 The roots `id`, `defaults`, `colors`, `fonts`, `units`, `assets`, and `illustrations` are reserved. Empty custom dictionaries do not generate declarations. Multiple theme variants in one target must expose the same non-empty custom families and token keys.
 
@@ -149,10 +157,9 @@ public extension ThemeProxy {
 }
 ```
 
-The generic scope matters because `Theme.Alias` is invariant. A method taking
-only `Theme.Alias<Theme.Gradients>` accepts family-scoped, group-less aliases,
-but it does not accept `Theme.Alias<Theme.Gradients.BrandGroup>`, which is the
-underlying type of `BrandAlias`. Constraining `Scope.Family` instead accepts both:
+Keep an app-owned helper generic over its alias scope and constrain only the
+family. That accepts either a family alias or any generated group alias while
+`ThemeProxy.resolve(_:)` supplies the selected mode payload:
 
 ```swift
 let familyAlias = Theme.Alias<Theme.Gradients>(rawValue: "background")

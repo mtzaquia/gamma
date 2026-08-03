@@ -589,25 +589,25 @@ private extension GammaCodeGenerator {
         writer: inout SourceWriter
     ) throws {
         let groups = Dictionary(grouping: tokens, by: \.group)
-        for group in groups.keys.sorted() {
-            if group.isEmpty {
-                writer.blankLine()
-                writer.line("// MARK: - Theme.\(familyType) aliases without a group")
-                writer.blankLine()
-                try writer.block(
-                    "public extension Theme.Alias where Scope == Theme.\(familyType)"
-                ) { writer in
-                    for token in groups[group, default: []].sorted(by: { $0.key < $1.key }) {
-                        writer.docComment(description: token.description, key: token.key)
-                        writer.line(
-                            "static var \(try tokenAccessor(token.key)): Self { "
-                                + "Self(rawValue: \(swiftStringLiteral(token.key))) }"
-                        )
-                    }
+        writer.blankLine()
+        writer.line("// MARK: - Theme.\(familyType) aliases")
+        writer.blankLine()
+        try writer.block(
+            "public extension Theme.Alias where Scope == Theme.\(familyType)"
+        ) { writer in
+            for token in tokens.sorted(by: { $0.key < $1.key }) {
+                writer.docComment(description: token.description, key: token.key)
+                if !token.group.isEmpty {
+                    writer.line("@_disfavoredOverload")
                 }
-                continue
+                writer.line(
+                    "static var \(try tokenAccessor(token.key)): Self { "
+                        + "Self(rawValue: \(swiftStringLiteral(token.key))) }"
+                )
             }
+        }
 
+        for group in groups.keys.filter({ !$0.isEmpty }).sorted() {
             let stem = try groupTypeStem(group)
             let markerType = stem + "Group"
             let aliasType = stem + "Alias"

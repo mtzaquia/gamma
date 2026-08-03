@@ -85,20 +85,22 @@ swift run gamma-codegen \
 | --- | --- |
 | File `Brand Default.theme.json` | `ThemeResource.brandDefault` |
 | Color group `text` | `Theme.Colors.TextAlias` |
-| Color key `text/primary` | `.textPrimary` constrained to `Theme.Colors.TextAlias` |
+| Color key `text/primary` | `.textPrimary` on both `Theme.Alias<Theme.Colors>` and `Theme.Colors.TextAlias` |
 | Font group `typography` | `Theme.Fonts.TypographyAlias` |
-| Font key `typography/body` | `.typographyBody` constrained to `Theme.Fonts.TypographyAlias` |
+| Font key `typography/body` | `.typographyBody` on both `Theme.Alias<Theme.Fonts>` and `Theme.Fonts.TypographyAlias` |
 | Unit group `spacing` | `Theme.Units.SpacingAlias` |
-| Unit key `spacing/medium` | `.spacingMedium` constrained to `Theme.Units.SpacingAlias` |
+| Unit key `spacing/medium` | `.spacingMedium` on both `Theme.Alias<Theme.Units>` and `Theme.Units.SpacingAlias` |
 | Image set `close.imageset` | Icon asset alias `.close` |
 
 Names are normalized into Swift identifiers, leading digits receive an underscore, reserved words are escaped, and raw values are emitted as escaped Swift string literals.
 
-The group becomes the nested alias type name and the complete key becomes the accessor. Keeping the group in the member name disambiguates direct family resolution: `theme.unit(.spacingMedium)` and `theme.unit(.sizeMedium)` can coexist. Normalization keeps ASCII letters and digits and treats other characters as separators. For example, `scale/1x-large` in group `scale` becomes `.scale1xLarge`. A name with no ASCII identifier content fails generation.
+The group becomes the nested alias type name and the complete key becomes the accessor. Grouped tokens generate the same accessor on two scopes: use the family scope for properties and collections that compose tokens from different groups, and use the group scope to restrict a component parameter to one semantic group.
+
+Keeping the group in the member name disambiguates direct family resolution: `theme.unit(.spacingMedium)` and `theme.unit(.sizeMedium)` can coexist. Normalization keeps ASCII letters and digits and treats other characters as separators. For example, `scale/1x-large` in group `scale` becomes `.scale1xLarge`. A name with no ASCII identifier content fails generation.
 
 Generation fails when distinct source names normalize to the same declaration—for example, `foo-bar` and `foo_bar` within one family and group. Accessor and group names may repeat in different family namespaces. Consumer-defined roots also generate typed declarations; see [Theme extensions](theme-extensions.md#generated-api).
 
-A token with an empty `group` remains available through its family scope, such as `Theme.Alias<Theme.Fonts>`. Its single-component key becomes the accessor directly, so key `body` generates `.body`. It does not generate an `UngroupedAlias`, because there is no semantic group for a component parameter to require.
+A token with an empty `group` is available only through its family scope, such as `Theme.Alias<Theme.Fonts>`. Its single-component key becomes the accessor directly, so key `body` generates `.body`. It does not generate an `UngroupedAlias`, because there is no semantic group for a component parameter to require.
 
 Grouped keys must contain exactly two non-empty components and begin with the exact `group` value. An empty group requires a single-component key. Generation fails instead of silently deriving a different group from the key.
 

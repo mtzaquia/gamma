@@ -33,13 +33,13 @@ var body: some View {
 
 ## Install
 
-Gamma 2.0.0 supports iOS 17+ and macOS 14+, and uses the Swift 6.2 package format.
+Gamma 2.0.0-beta.3 supports iOS 17+ and macOS 14+, and uses the Swift 6.3 package format.
 
 ```swift
 dependencies: [
   .package(
     url: "https://github.com/mtzaquia/gamma.git",
-    from: "2.0.0"
+    exact: "2.0.0-beta.3"
   ),
 ]
 ```
