@@ -35,11 +35,20 @@ private struct ThemeFontModifier: ViewModifier {
     let themeFont: ThemeFont?
 
     func body(content: Content) -> some View {
-        content
+        let result = content
             .font(themeFont?.font(for: dynamicTypeSize))
-            .lineSpacing(themeFont?.lineSpacing(for: dynamicTypeSize) ?? .zero)
             .kerning(themeFont?.kerning(for: dynamicTypeSize) ?? 0)
             .textCase(themeFont?.textCase)
-            .environment(\.themeFontLineHeight, themeFont?.lineHeight(for: dynamicTypeSize))
+
+        Group {
+            if #available(iOS 26, *) {
+                result
+                    .lineHeight((themeFont?.lineHeight(for: dynamicTypeSize)).map { .exact(points: $0) })
+            } else {
+                result
+                    .lineSpacing(themeFont?.lineSpacing(for: dynamicTypeSize) ?? .zero)
+                    .environment(\.themeFontLineHeight, themeFont?.lineHeight(for: dynamicTypeSize))
+            }
+        }
     }
 }

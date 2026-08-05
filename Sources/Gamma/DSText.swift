@@ -22,18 +22,24 @@
 
 import SwiftUI
 
-/// A text view that automatically applies the active theme's line height.
+/// A text view that applies the active theme's line height on iOS versions before 26.
 ///
-/// Use `DSText` in place of SwiftUI's `Text` whenever a theme font has been
-/// applied via `.font(_:)` so that line height is respected correctly.
+/// On iOS 26 and later, this forwards directly to SwiftUI's `Text`, which
+/// supports native line-height configuration. On earlier versions, use
+/// `DSText` in place of SwiftUI's `Text` whenever a theme font has been applied
+/// via `.font(_:)` so that single-line text respects the theme's line height.
 public struct DSText: View {
     @Environment(\.themeFontLineHeight) private var lineHeight
 
     @usableFromInline let text: Text
 
     public var body: some View {
-        text
-            .frame(minHeight: lineHeight)
+        if #available(iOS 26, *) {
+            text
+        } else {
+            text
+                .frame(minHeight: lineHeight)
+        }
     }
 
     @inlinable public init(verbatim content: String) {
