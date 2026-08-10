@@ -55,12 +55,7 @@ let package = Package(
         ),
         .testTarget(
             name: "GammaTests",
-            dependencies: [
-                .target(
-                    name: "Gamma",
-                    condition: .when(platforms: [.iOS])
-                ),
-            ],
+            dependencies: ["Gamma"],
             resources: [.process("Resources")],
             swiftSettings: defaultSwiftSettings
         ),

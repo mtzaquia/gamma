@@ -20,10 +20,14 @@
 //  SOFTWARE.
 //
 
-#if canImport(UIKit)
 import CoreGraphics
 import Foundation
 import Testing
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 @testable import Gamma
 
 @Suite("Font registrar")
@@ -96,6 +100,22 @@ struct FontRegistrarTests {
             FontRegistrationIssue(fileName: "broken.ttf", reason: "invalid font data"),
         ])
     }
+
+    @Test("The platform backend recognizes installed and unavailable PostScript names")
+    func platformAvailabilityUsesNativeFontLookup() {
+#if canImport(UIKit)
+        let installedName = UIFont.systemFont(ofSize: 12).fontName
+#elseif canImport(AppKit)
+        let installedName = NSFont.systemFont(ofSize: 12).fontName
+#endif
+        let backend = PlatformFontAvailabilityBackend()
+
+        #expect(backend.isFontAvailable(named: installedName, size: 12))
+        #expect(!backend.isFontAvailable(
+            named: "Gamma-Definitely-Not-Installed",
+            size: 12
+        ))
+    }
 }
 
 private final class FakeFontRegistrationBackend: FontRegistrationBackend {
@@ -141,4 +161,3 @@ private final class FakeFontRegistrationBackend: FontRegistrationBackend {
         case couldNotCreateFont
     }
 }
-#endif

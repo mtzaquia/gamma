@@ -22,9 +22,9 @@ This includes broken defaults, token metadata, empty mode dictionaries, invalid 
 
 At `.trace`, successful registration logs include both the filename and the discovered PostScript name. This makes it possible to compare the file with the theme's `fontName` without introducing a separate font manifest.
 
-Registration diagnostics describe supplied files. A JSON `fontName` may legitimately refer to a system font or a face registered elsewhere, so Gamma does not require every theme font to appear in `fontURLs`. Keep the JSON value equal to the actual PostScript name; UIKit may substitute another face when an unavailable name reaches its font descriptor.
+Registration diagnostics describe supplied files. A JSON `fontName` may legitimately refer to a system font or a face registered elsewhere, so Gamma does not require every theme font to appear in `fontURLs`. Keep the JSON value equal to the actual PostScript name; UIKit or AppKit may substitute another face when an unavailable name reaches its font descriptor.
 
-After registering supplied files, runtime theme validation checks every resolver-selected primary and cascade face with UIKit. An unavailable PostScript name is included in the theme's consolidated warning and triggers the same debug assertion as other selected-mode drift.
+After registering supplied files, runtime theme validation checks every resolver-selected primary and cascade face with UIKit on iOS or AppKit on macOS. An unavailable PostScript name is included in the theme's consolidated warning and triggers the same debug assertion as other selected-mode drift.
 
 ## Resolver validation
 
@@ -42,7 +42,7 @@ After reporting a failure, release builds keep rendering with deliberately consp
 | --- | --- |
 | Missing or invalid color side | Black in light appearance, white in dark appearance. |
 | Missing font token or primary mode | Preferred system body font. |
-| Unavailable selected PostScript font name | UIKit substitutes an available face after Gamma reports it. |
+| Unavailable selected PostScript font name | The platform font system substitutes an available face after Gamma reports it. |
 | Missing unit token or mode | `0`. |
 
 Fallbacks are a last line of defense, not schema defaults. Fix the diagnostic rather than designing around them.

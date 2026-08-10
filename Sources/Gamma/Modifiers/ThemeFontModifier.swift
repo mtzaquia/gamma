@@ -41,7 +41,7 @@ private struct ThemeFontModifier: ViewModifier {
             .textCase(themeFont?.textCase)
 
         Group {
-            if #available(iOS 26, *) {
+            if #available(iOS 26, macOS 26, *) {
                 result
                     .lineHeight((themeFont?.lineHeight(for: dynamicTypeSize)).map { .exact(points: $0) })
             } else {

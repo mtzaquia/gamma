@@ -20,9 +20,10 @@
 //  SOFTWARE.
 //
 
-#if canImport(UIKit)
 import Testing
-import UIKit
+#if canImport(AppKit)
+import AppKit
+#endif
 @testable import Gamma
 
 @Suite("Raw font")
@@ -46,7 +47,29 @@ struct RawFontTests {
         #expect(textStyle(for: "unmarked") == .body)
     }
 
-    private func textStyle(for description: String) -> UIFont.TextStyle {
+#if canImport(AppKit)
+    @Test("Resolved theme fonts expose an AppKit font on macOS")
+    func themeFontExposesAppKitFont() throws {
+        let installedFont = try #require(NSFont(name: "Helvetica", size: 17))
+        let themeFont = ThemeFont(
+            fontName: installedFont.fontName,
+            cascadeFontNames: [],
+            fontSize: 17,
+            lineHeight: 24,
+            letterSpacing: 0,
+            textCase: nil,
+            textStyle: .body
+        )
+
+        let resolved = themeFont.nsFont(for: .large)
+
+        #expect(resolved.fontName == installedFont.fontName)
+        #expect(resolved.pointSize == 17)
+        #expect(themeFont.lineHeight(for: .large) == 24)
+    }
+#endif
+
+    private func textStyle(for description: String) -> ThemeFontTextStyle {
         RawFont(
             name: "test",
             group: "test",
@@ -55,4 +78,3 @@ struct RawFontTests {
         ).textStyle
     }
 }
-#endif

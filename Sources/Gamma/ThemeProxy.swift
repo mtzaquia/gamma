@@ -227,9 +227,9 @@ public extension ThemeProxy {
             )
         }
 
-        let uiLight = lightMode.flatMap { UIColor(hex: $0.hex)?.withAlphaComponent($0.alpha) } ?? .black
-        let uiDark = darkMode.flatMap { UIColor(hex: $0.hex)?.withAlphaComponent($0.alpha) } ?? .white
-        return fallbackColor(light: uiLight, dark: uiDark, cacheKey: cacheKey)
+        let platformLight = lightMode.flatMap { PlatformColor(hex: $0.hex)?.withAlphaComponent($0.alpha) } ?? .black
+        let platformDark = darkMode.flatMap { PlatformColor(hex: $0.hex)?.withAlphaComponent($0.alpha) } ?? .white
+        return fallbackColor(light: platformLight, dark: platformDark, cacheKey: cacheKey)
     }
 
     /// Resolves a font alias to a ``ThemeFont`` for the current layout direction.
@@ -370,10 +370,11 @@ public extension ThemeProxy {
     }
 
     private func fallbackColor(
-        light: UIColor,
-        dark: UIColor,
+        light: PlatformColor,
+        dark: PlatformColor,
         cacheKey: ThemeTokenCacheKey
     ) -> Color {
+#if canImport(UIKit)
         let uiColor = UIColor { @Sendable trait in // @Sendable prevents a crash in SwiftUI.AsyncRenderer.
             switch trait.userInterfaceStyle {
             case .dark: dark
@@ -382,6 +383,13 @@ public extension ThemeProxy {
         }
 
         let result = Color(uiColor: uiColor)
+#elseif canImport(AppKit)
+        let nsColor = NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+        }
+
+        let result = Color(nsColor: nsColor)
+#endif
         ThemeProxyCache.colorCache[cacheKey] = result
         return result
     }
@@ -403,3 +411,9 @@ public extension ThemeProxy {
         return selection
     }
 }
+
+#if canImport(UIKit)
+private typealias PlatformColor = UIColor
+#elseif canImport(AppKit)
+private typealias PlatformColor = NSColor
+#endif

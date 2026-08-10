@@ -21,6 +21,12 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+import CoreText
+#endif
 
 /// A resolved font from the active theme that scales with Dynamic Type.
 ///
@@ -33,30 +39,26 @@ public struct ThemeFont: Hashable {
     private let baseFontSize: CGFloat
     private let baseLineHeight: CGFloat?
     private let baseLetterSpacing: CGFloat?
-    private let metrics: UIFontMetrics
+    private let textStyle: ThemeFontTextStyle
 
     let textCase: Text.Case?
 
-    private func traitCollection(for dynamicTypeSize: DynamicTypeSize) -> UITraitCollection {
-        UITraitCollection(preferredContentSizeCategory: dynamicTypeSize.uiContentSizeCategory)
-    }
-
     private func fontSize(for dynamicTypeSize: DynamicTypeSize) -> CGFloat {
-        metrics.scaledValue(for: baseFontSize, compatibleWith: traitCollection(for: dynamicTypeSize))
+        scaledValue(baseFontSize, for: dynamicTypeSize)
     }
 
     /// Returns the line height scaled to the given Dynamic Type size.
     public func lineHeight(for dynamicTypeSize: DynamicTypeSize) -> CGFloat {
-        metrics.scaledValue(for: baseLineHeight ?? baseFontSize, compatibleWith: traitCollection(for: dynamicTypeSize))
+        scaledValue(baseLineHeight ?? baseFontSize, for: dynamicTypeSize)
     }
 
     private func letterSpacing(for dynamicTypeSize: DynamicTypeSize) -> CGFloat {
-        metrics.scaledValue(for: baseLetterSpacing ?? 0, compatibleWith: traitCollection(for: dynamicTypeSize))
+        scaledValue(baseLetterSpacing ?? 0, for: dynamicTypeSize)
     }
 
     func lineSpacing(for dynamicTypeSize: DynamicTypeSize) -> CGFloat? {
         guard baseLineHeight != nil else { return nil }
-        let candidate = lineHeight(for: dynamicTypeSize) - uiFont(for: dynamicTypeSize).lineHeight
+        let candidate = lineHeight(for: dynamicTypeSize) - platformFontLineHeight(for: dynamicTypeSize)
         guard candidate >= 0 else { return nil }
         return candidate
     }
@@ -81,11 +83,16 @@ public struct ThemeFont: Hashable {
             return cached
         }
 
+#if canImport(UIKit)
         let result = Font(uiFont(for: dynamicTypeSize))
+#elseif canImport(AppKit)
+        let result = Font(nsFont(for: dynamicTypeSize) as CTFont)
+#endif
         ThemeProxyCache.swiftUIFontCache[cacheKey] = result
         return result
     }
 
+#if canImport(UIKit)
     /// Returns the `UIFont` scaled to the given Dynamic Type size.
     public func uiFont(for dynamicTypeSize: DynamicTypeSize) -> UIFont {
         let cacheKey = ThemeFontCacheKey(
@@ -99,7 +106,9 @@ public struct ThemeFont: Hashable {
             return cached
         }
 
-        let traitCollection = traitCollection(for: dynamicTypeSize)
+        let traitCollection = UITraitCollection(
+            preferredContentSizeCategory: dynamicTypeSize.uiContentSizeCategory
+        )
         let descriptor = UIFontDescriptor(name: fontName, size: baseFontSize)
         let combinedDescriptor = descriptor.addingAttributes([
             .cascadeList: cascadeFontNames.map {
@@ -107,18 +116,48 @@ public struct ThemeFont: Hashable {
             }.compactMap(\.self)
         ])
         let baseFont = UIFont(descriptor: combinedDescriptor, size: baseFontSize)
-        let result = metrics.scaledFont(for: baseFont, compatibleWith: traitCollection)
+        let result = UIFontMetrics(forTextStyle: textStyle.uiTextStyle)
+            .scaledFont(for: baseFont, compatibleWith: traitCollection)
 
         ThemeProxyCache.uiFontCache[cacheKey] = result
         return result
     }
+#elseif canImport(AppKit)
+    /// Returns the `NSFont` scaled to the given Dynamic Type size.
+    public func nsFont(for dynamicTypeSize: DynamicTypeSize) -> NSFont {
+        let cacheKey = ThemeFontCacheKey(
+            fontName: fontName,
+            cascadeFontNames: cascadeFontNames,
+            size: baseFontSize,
+            dynamicTypeSize: dynamicTypeSize
+        )
+
+        if let cached = ThemeProxyCache.nsFontCache[cacheKey] {
+            return cached
+        }
+
+        let size = fontSize(for: dynamicTypeSize)
+        let descriptor = NSFontDescriptor(name: fontName, size: size)
+        let combinedDescriptor = descriptor.addingAttributes([
+            .cascadeList: cascadeFontNames.map {
+                NSFontDescriptor(name: $0, size: size)
+            },
+        ])
+        let result = NSFont(descriptor: combinedDescriptor, size: size)
+            ?? NSFont(name: fontName, size: size)
+            ?? .systemFont(ofSize: size)
+
+        ThemeProxyCache.nsFontCache[cacheKey] = result
+        return result
+    }
+#endif
 
     /// Returns an `AttributeContainer` with the font, kerning, and line height applied for the given Dynamic Type size.
     public func attributes(for dynamicTypeSize: DynamicTypeSize) -> AttributeContainer {
         var container = AttributeContainer()
         container.font = font(for: dynamicTypeSize)
         container.kern = kerning(for: dynamicTypeSize)
-        if #available(iOS 26, *) {
+        if #available(iOS 26, macOS 26, *) {
             container.lineHeight = .exact(points: lineHeight(for: dynamicTypeSize))
         }
         return container
@@ -131,7 +170,7 @@ public struct ThemeFont: Hashable {
         lineHeight: CGFloat?,
         letterSpacing: CGFloat?,
         textCase: Text.Case?,
-        textStyle: UIFont.TextStyle
+        textStyle: ThemeFontTextStyle
     ) {
         self.fontName = fontName
         self.cascadeFontNames = cascadeFontNames
@@ -139,9 +178,10 @@ public struct ThemeFont: Hashable {
         self.baseLineHeight = lineHeight
         self.baseLetterSpacing = letterSpacing
         self.textCase = textCase
-        self.metrics = UIFontMetrics(forTextStyle: textStyle)
+        self.textStyle = textStyle
     }
 
+#if canImport(UIKit)
     static let fallback: Self = ThemeFont(
         fontName: UIFont.preferredFont(forTextStyle: .body).fontName,
         cascadeFontNames: [],
@@ -151,8 +191,47 @@ public struct ThemeFont: Hashable {
         textCase: nil,
         textStyle: .body
     )
+#elseif canImport(AppKit)
+    static let fallback: Self = {
+        let font = NSFont.preferredFont(forTextStyle: .body, options: [:])
+        return ThemeFont(
+            fontName: font.fontName,
+            cascadeFontNames: [],
+            fontSize: font.pointSize,
+            lineHeight: nil,
+            letterSpacing: nil,
+            textCase: nil,
+            textStyle: .body
+        )
+    }()
+#endif
+
+    private func scaledValue(
+        _ value: CGFloat,
+        for dynamicTypeSize: DynamicTypeSize
+    ) -> CGFloat {
+#if canImport(UIKit)
+        let traits = UITraitCollection(
+            preferredContentSizeCategory: dynamicTypeSize.uiContentSizeCategory
+        )
+        return UIFontMetrics(forTextStyle: textStyle.uiTextStyle)
+            .scaledValue(for: value, compatibleWith: traits)
+#elseif canImport(AppKit)
+        value * dynamicTypeSize.gammaScaleFactor
+#endif
+    }
+
+    private func platformFontLineHeight(for dynamicTypeSize: DynamicTypeSize) -> CGFloat {
+#if canImport(UIKit)
+        uiFont(for: dynamicTypeSize).lineHeight
+#elseif canImport(AppKit)
+        let font = nsFont(for: dynamicTypeSize)
+        return font.ascender - font.descender + font.leading
+#endif
+    }
 }
 
+#if canImport(UIKit)
 private extension DynamicTypeSize {
     var uiContentSizeCategory: UIContentSizeCategory {
         switch self {
@@ -172,3 +251,42 @@ private extension DynamicTypeSize {
         }
     }
 }
+
+private extension ThemeFontTextStyle {
+    var uiTextStyle: UIFont.TextStyle {
+        switch self {
+        case .largeTitle: .largeTitle
+        case .title1: .title1
+        case .title2: .title2
+        case .title3: .title3
+        case .headline: .headline
+        case .subheadline: .subheadline
+        case .body: .body
+        case .callout: .callout
+        case .footnote: .footnote
+        case .caption1: .caption1
+        case .caption2: .caption2
+        }
+    }
+}
+#elseif canImport(AppKit)
+private extension DynamicTypeSize {
+    var gammaScaleFactor: CGFloat {
+        switch self {
+        case .xSmall: 14 / 17
+        case .small: 15 / 17
+        case .medium: 16 / 17
+        case .large: 1
+        case .xLarge: 19 / 17
+        case .xxLarge: 21 / 17
+        case .xxxLarge: 23 / 17
+        case .accessibility1: 28 / 17
+        case .accessibility2: 33 / 17
+        case .accessibility3: 40 / 17
+        case .accessibility4: 47 / 17
+        case .accessibility5: 53 / 17
+        @unknown default: 1
+        }
+    }
+}
+#endif

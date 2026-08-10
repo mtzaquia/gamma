@@ -20,7 +20,6 @@
 //  SOFTWARE.
 //
 
-#if canImport(UIKit)
 import SwiftUI
 import Testing
 import Gamma
@@ -145,4 +144,3 @@ private func inferredColorScope<Scope: ThemeAliasScope>(
 ) -> String? where Scope.Family == Theme.Colors {
     Scope.groupName
 }
-#endif

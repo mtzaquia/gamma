@@ -22,7 +22,11 @@
 
 import CoreText
 import Foundation
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct FontRegistrationIssue: Hashable {
     let fileName: String
@@ -142,13 +146,15 @@ enum Registrar {
 }
 
 private struct CoreTextFontRegistrationBackend: FontRegistrationBackend {
+    private let availabilityBackend = PlatformFontAvailabilityBackend()
+
     func loadFont(at url: URL) -> CGFont? {
         guard let dataProvider = CGDataProvider(url: url as CFURL) else { return nil }
         return CGFont(dataProvider)
     }
 
     func isFontAvailable(named postScriptName: String) -> Bool {
-        UIFont(name: postScriptName, size: 12) != nil
+        availabilityBackend.isFontAvailable(named: postScriptName, size: 12)
     }
 
     func register(_ font: CGFont) -> FontRegistrationAttempt {
@@ -166,5 +172,19 @@ private struct CoreTextFontRegistrationBackend: FontRegistrationBackend {
         }
 
         return .failed(CFErrorCopyDescription(error) as String)
+    }
+}
+
+protocol FontAvailabilityBackend {
+    func isFontAvailable(named postScriptName: String, size: CGFloat) -> Bool
+}
+
+struct PlatformFontAvailabilityBackend: FontAvailabilityBackend {
+    func isFontAvailable(named postScriptName: String, size: CGFloat) -> Bool {
+#if canImport(UIKit)
+        UIFont(name: postScriptName, size: size) != nil
+#elseif canImport(AppKit)
+        NSFont(name: postScriptName, size: size) != nil
+#endif
     }
 }

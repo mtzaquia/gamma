@@ -80,7 +80,7 @@ A font mode describes one face and its design metrics.
 | `letterSpacing` | A finite percentage; `0` disables kerning adjustment. |
 | `textCase` | `ORIGINAL`, `UPPER`, or `LOWER`. |
 
-The description may include an iOS text-style marker so Dynamic Type uses the matching `UIFontMetrics`. Supported markers are `ios:largeTitle`, `ios:title`, `ios:title1`, `ios:title2`, `ios:title3`, `ios:headline`, `ios:subheadline`, `ios:body`, `ios:callout`, `ios:footnote`, `ios:caption`, `ios:caption1`, and `ios:caption2`. An unmarked font uses `.body` metrics.
+The description may include an iOS text-style marker so Dynamic Type uses the matching `UIFontMetrics` on iOS. Supported markers are `ios:largeTitle`, `ios:title`, `ios:title1`, `ios:title2`, `ios:title3`, `ios:headline`, `ios:subheadline`, `ios:body`, `ios:callout`, `ios:footnote`, `ios:caption`, `ios:caption1`, and `ios:caption2`. An unmarked font uses `.body` metrics. On macOS, Gamma scales the same base metrics for the requested SwiftUI `DynamicTypeSize` and constructs the face and cascade with AppKit.
 
 ## Units
 
@@ -111,6 +111,6 @@ This group generates `Theme.Units.SpacingAlias`; the token itself is available a
 - font names, metrics, and text case;
 - finite unit values.
 
-The modes selected by a resolver are checked when the theme is installed and whenever its resolution context changes. That catches a structurally valid theme whose resolver asks for a mode it does not define. After supplied font files are registered, the selected primary and cascade PostScript names are also checked for availability through UIKit.
+The modes selected by a resolver are checked when the theme is installed and whenever its resolution context changes. That catches a structurally valid theme whose resolver asks for a mode it does not define. After supplied font files are registered, the selected primary and cascade PostScript names are also checked for availability in the current process through UIKit on iOS or AppKit on macOS.
 
 Next: [Mode resolution](modes.md) · [Diagnostics](diagnostics.md)

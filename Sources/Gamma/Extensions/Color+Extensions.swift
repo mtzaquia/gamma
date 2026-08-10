@@ -22,7 +22,9 @@
 
 import SwiftUI
 
+#if canImport(UIKit)
 public extension UIColor {
+    /// Creates a UIKit color from a six-digit RGB hexadecimal string.
     convenience init?(hex: String) {
         var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
@@ -49,3 +51,27 @@ public extension UIColor {
         self.init(red: r, green: g, blue: b, alpha: 1)
     }
 }
+#elseif canImport(AppKit)
+public extension NSColor {
+    /// Creates an AppKit color from a six-digit RGB hexadecimal string.
+    convenience init?(hex: String) {
+        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
+
+        var rgb: UInt64 = 0
+
+        guard hexSanitized.count == 6,
+              Scanner(string: hexSanitized).scanHexInt64(&rgb)
+        else {
+            return nil
+        }
+
+        self.init(
+            calibratedRed: CGFloat((rgb & 0xFF0000) >> 16) / 255,
+            green: CGFloat((rgb & 0x00FF00) >> 8) / 255,
+            blue: CGFloat(rgb & 0x0000FF) / 255,
+            alpha: 1
+        )
+    }
+}
+#endif

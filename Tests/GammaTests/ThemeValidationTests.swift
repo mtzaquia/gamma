@@ -20,7 +20,6 @@
 //  SOFTWARE.
 //
 
-#if canImport(UIKit)
 import Foundation
 import Testing
 @testable import Gamma
@@ -183,7 +182,7 @@ struct ThemeValidationTests {
         #expect(paths.contains("units.spacing/default.modes.tablet"))
     }
 
-    @Test("Resolver-selected font faces must be available to UIKit")
+    @Test("Resolver-selected font faces must be available to the process")
     func unavailableSelectedFontsAreReported() throws {
         let unavailableName = "Gamma-Definitely-Not-Installed"
         let theme = try decode(
@@ -266,4 +265,3 @@ struct ThemeValidationTests {
     }
     """
 }
-#endif

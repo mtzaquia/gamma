@@ -103,7 +103,11 @@ enum ThemeProxyCache {
     static let colorCache = BoundedCache<ThemeTokenCacheKey, Color>(countLimit: 256)
     static let fontCache = BoundedCache<ThemeTokenCacheKey, ThemeFont>(countLimit: 256)
     static let unitCache = BoundedCache<ThemeTokenCacheKey, CGFloat>(countLimit: 512)
+#if canImport(UIKit)
     static let uiFontCache = BoundedCache<ThemeFontCacheKey, UIFont>(countLimit: 256)
+#elseif canImport(AppKit)
+    static let nsFontCache = BoundedCache<ThemeFontCacheKey, NSFont>(countLimit: 256)
+#endif
     static let swiftUIFontCache = BoundedCache<ThemeFontCacheKey, Font>(countLimit: 256)
 
 }

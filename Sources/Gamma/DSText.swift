@@ -22,9 +22,9 @@
 
 import SwiftUI
 
-/// A text view that applies the active theme's line height on iOS versions before 26.
+/// A text view that applies the active theme's line height where SwiftUI does not provide native support.
 ///
-/// On iOS 26 and later, this forwards directly to SwiftUI's `Text`, which
+/// On iOS 26 and macOS 26 or later, this forwards directly to SwiftUI's `Text`, which
 /// supports native line-height configuration. On earlier versions, use
 /// `DSText` in place of SwiftUI's `Text` whenever a theme font has been applied
 /// via `.font(_:)` so that single-line text respects the theme's line height.
@@ -34,7 +34,7 @@ public struct DSText: View {
     @usableFromInline let text: Text
 
     public var body: some View {
-        if #available(iOS 26, *) {
+        if #available(iOS 26, macOS 26, *) {
             text
         } else {
             text
@@ -70,7 +70,7 @@ public struct DSText: View {
         self.text = Text(input, format: format)
     }
 
-    @available(iOS 18.0, *)
+    @available(iOS 18.0, macOS 15.0, *)
     public init<F>(_ input: F.FormatInput, format: F) where F : FormatStyle, F.FormatInput : Equatable, F.FormatOutput == AttributedString {
         self.text = Text(input, format: format)
     }
@@ -99,12 +99,12 @@ public struct DSText: View {
         self.text = Text(attributedContent)
     }
 
-    @available(iOS 18.0, *)
+    @available(iOS 18.0, macOS 15.0, *)
     public init<V, F>(_ source: TimeDataSource<V>, format: F) where V == F.FormatInput, F : DiscreteFormatStyle, F.FormatOutput == AttributedString {
         self.text = Text(source, format: format)
     }
 
-    @available(iOS 18, *)
+    @available(iOS 18, macOS 15, *)
     public init<V, F>(_ source: TimeDataSource<V>, format: F) where V == F.FormatInput, F : DiscreteFormatStyle, F.FormatOutput == String {
         self.text = Text(source, format: format)
     }

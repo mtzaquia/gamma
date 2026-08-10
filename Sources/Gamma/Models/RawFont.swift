@@ -26,7 +26,7 @@ import SwiftUI
 public typealias RawFont = GammaSchema.RawFont
 
 extension RawFont {
-    var textStyle: UIFont.TextStyle {
+    var textStyle: ThemeFontTextStyle {
         switch description {
         case /\bios:largeTitle\b/: return .largeTitle
         case /\bios:title(?:1)?\b/: return .title1
@@ -41,4 +41,18 @@ extension RawFont {
         default: return .body
         }
     }
+}
+
+enum ThemeFontTextStyle: Hashable {
+    case largeTitle
+    case title1
+    case title2
+    case title3
+    case headline
+    case subheadline
+    case body
+    case callout
+    case footnote
+    case caption1
+    case caption2
 }

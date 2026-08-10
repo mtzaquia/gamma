@@ -170,8 +170,8 @@ This contract check applies to files visible to the generator. If a theme exists
 
 ## Isolation and platform boundary
 
-The `Gamma` SwiftUI target uses main-actor isolation by default, matching view and environment lifecycle. The shared schema target and code generator are platform-neutral. `RawTheme` and its raw token values are `Sendable`, so server JSON can be decoded and schema-validated away from the UI actor before the resulting value is installed. `ThemeOverrides` is also `Sendable`, but belongs to the iOS runtime target. Mode resolution runs on the main actor during SwiftUI's environment update, so an ordinary application `struct` can conform without concurrency annotations.
+The `Gamma` SwiftUI target uses main-actor isolation by default, matching view and environment lifecycle on iOS and macOS. The shared schema target and code generator are platform-neutral. `RawTheme` and its raw token values are `Sendable`, so server JSON can be decoded and schema-validated away from the UI actor before the resulting value is installed. `ThemeOverrides` is also `Sendable` and belongs to the cross-platform runtime target. Mode resolution runs on the main actor during SwiftUI's environment update, so an ordinary application `struct` can conform without concurrency annotations.
 
-Host `swift test` exercises the portable schema and generator. Runtime and DynamicProperty tests execute against an iOS Simulator through the package workspace.
+Host `swift test` exercises the schema, generator, and platform-independent runtime contracts on macOS. Runtime tests that depend on UIKit or an iOS window lifecycle execute against an iOS Simulator.
 
 Next: [Theme format](themes.md) · [Mode resolution](modes.md)

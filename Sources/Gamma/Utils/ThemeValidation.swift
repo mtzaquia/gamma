@@ -23,7 +23,6 @@
 import GammaSchema
 import Foundation
 import os
-import UIKit
 
 package typealias ThemeValidationIssue = GammaSchema.ThemeValidationIssue
 
@@ -91,10 +90,13 @@ extension RawTheme {
                         continue
                     }
 
-                    if UIFont(name: value.fontName, size: value.fontSize) == nil {
+                    if !PlatformFontAvailabilityBackend().isFontAvailable(
+                        named: value.fontName,
+                        size: value.fontSize
+                    ) {
                         issues.append(.init(
                             path: "fonts.\(token).modes.\(mode).fontName",
-                            message: "PostScript name \(value.fontName.inspecting) is not available to UIKit"
+                            message: "PostScript name \(value.fontName.inspecting) is not available to this process"
                         ))
                     }
                 }

@@ -120,7 +120,7 @@ The complete string is the token key. Grouped aliases decode from ordinary strin
 
 ## Colors
 
-`theme.color(...)` returns a SwiftUI `Color` backed by a dynamic `UIColor`. The same value follows light and dark appearance using the resolver's selected pair.
+`theme.color(...)` returns a SwiftUI `Color` backed by a dynamic `UIColor` on iOS or `NSColor` on macOS. The same value follows light and dark appearance using the resolver's selected pair.
 
 ```swift
 Text("Account")
@@ -146,14 +146,20 @@ The modifier applies:
 
 Use `DSText` when single-line text should occupy at least the token's scaled line height. It accepts the common SwiftUI `Text` inputs and reads that value from the environment. The font modifier applies line spacing to multiline content; `DSText` does not replace SwiftUI's text-layout engine with an exact line-height renderer.
 
-`ThemeFont` also exposes values for UIKit and attributed text. Read the current Dynamic Type size from the environment and pass it explicitly:
+`ThemeFont` also exposes platform fonts and attributed-text values. Read the current Dynamic Type size from the environment and pass it explicitly:
 
 ```swift
 @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-private var bodyUIFont: UIFont {
+#if os(iOS)
+private var bodyPlatformFont: UIFont {
   theme.font(.typographyBody).uiFont(for: dynamicTypeSize)
 }
+#elseif os(macOS)
+private var bodyPlatformFont: NSFont {
+  theme.font(.typographyBody).nsFont(for: dynamicTypeSize)
+}
+#endif
 
 private var bodyAttributes: AttributeContainer {
   theme.font(.typographyBody).attributes(for: dynamicTypeSize)
@@ -179,7 +185,7 @@ The JSON `fontName` is already the contract: it must be the face's PostScript na
 
 Registration is idempotent for the lifetime of the process. Repeated SwiftUI body evaluations do not reread the same successful URL, the same PostScript name supplied from different cache URLs is registered only once, and a font already registered by the app or another framework is treated as available.
 
-Supplied files are first validated independently, so system fonts and faces registered elsewhere do not need entries in `fontURLs`. After registration, Gamma checks every resolver-selected primary and cascade `fontName` through UIKit. An unavailable PostScript name joins the consolidated theme diagnostic and triggers a debug assertion. Enable trace diagnostics while integrating custom faces to compare discovered PostScript names with the JSON.
+Supplied files are first validated independently, so system fonts and faces registered elsewhere do not need entries in `fontURLs`. After registration, Gamma checks every resolver-selected primary and cascade `fontName` through UIKit on iOS or AppKit on macOS. An unavailable PostScript name joins the consolidated theme diagnostic and triggers a debug assertion. Enable trace diagnostics while integrating custom faces to compare discovered PostScript names with the JSON.
 
 ### Server-provided themes and fonts
 
