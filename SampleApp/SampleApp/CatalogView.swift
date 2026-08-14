@@ -84,13 +84,9 @@ struct CatalogView: View {
                     .frame(width: 44, height: 44)
 
                 VStack(alignment: .leading, spacing: theme.unit(.spacingSmall)) {
-                    Text("Design tokens, resolved live")
+                    DSText("Design tokens, resolved live")
                         .font(theme.font(.typographyDisplay))
                         .accessibilityIdentifier(SampleAppAccessibility.catalogTitle)
-                        .onGeometryChange(for: CGSize.self, of: \.size, action: {
-                            print($0)
-                        })
-                        .fixedSize(horizontal: false, vertical: true)
                     DSText("Five focused experiments connect Gamma's public API to an outcome you can see.")
                         .font(theme.font(.typographyBody))
                 }
