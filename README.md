@@ -6,6 +6,8 @@
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue.svg)](https://github.com/mtzaquia/gamma/blob/main/Package.swift)
 ![Class A](https://img.shields.io/badge/class-A-gold)
 
+<a href="https://www.buymeacoffee.com/mtzaquia" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 30px !important;" ></a>
+
 `Gamma` is a battle-tested, streamlined design system foundation for your apps.
 
 Describe colors, typography, and units in one JSON theme. Decide how its modes map to the current SwiftUI environment. Gamma validates the result, generates type-safe aliases, and resolves those aliases where views use them.
