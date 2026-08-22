@@ -105,6 +105,36 @@ struct ThemeReaderLifecycleTests {
         window.isHidden = true
     }
 
+    @Test("Changing secondary foreground defaults preserves descendant state")
+    func changingSecondaryForegroundDefaultPreservesState() async throws {
+        let counter = ResolutionCounter()
+        let model = try LifecycleModel(themeJSON: Self.themeJSON(compactUnit: 12))
+        var stateIdentities: [UUID] = []
+        let rootView = StatefulThemeHost(
+            model: model,
+            resolver: CountingModeResolver(counter: counter)
+        ) { stateIdentities.append($0) }
+        let controller = UIHostingController(rootView: rootView)
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+
+        await render(window)
+        let initialIdentity = try #require(stateIdentities.last)
+
+        model.theme = try JSONDecoder().decode(
+            RawTheme.self,
+            from: Data(Self.themeJSON(
+                compactUnit: 12,
+                includesSecondaryTextColor: true
+            ).utf8)
+        )
+        await render(window)
+
+        #expect(stateIdentities.last == initialIdentity)
+        window.isHidden = true
+    }
+
     @Test("Bounded caches evict least-recently-used entries")
     func boundedCacheEvictsLeastRecentlyUsedEntry() {
         let cache = BoundedCache<Int, String>(countLimit: 2)
@@ -139,11 +169,18 @@ struct ThemeReaderLifecycleTests {
         await Task.yield()
     }
 
-    private static func themeJSON(compactUnit: Int) -> String {
-        """
+    private static func themeJSON(
+        compactUnit: Int,
+        includesSecondaryTextColor: Bool = false
+    ) -> String {
+        let secondaryTextColor = includesSecondaryTextColor
+            ? #", "secondaryTextColor": "content/text""#
+            : ""
+
+        return """
         {
           "id": "live-theme",
-          "defaults": { "font": "typography/body", "primaryTextColor": "content/text" },
+          "defaults": { "font": "typography/body", "primaryTextColor": "content/text"\(secondaryTextColor) },
           "colors": {
             "content/text": {
               "name": "Text", "group": "content", "description": "",
@@ -176,6 +213,29 @@ struct ThemeReaderLifecycleTests {
           }
         }
         """
+    }
+}
+
+private struct StatefulThemeHost: View {
+    @ObservedObject var model: LifecycleModel
+    let resolver: CountingModeResolver
+    let onRender: (UUID) -> Void
+
+    var body: some View {
+        StatefulThemeProbe(onRender: onRender)
+            .theme(model.theme, modeResolver: resolver)
+            .environment(\.horizontalSizeClass, model.horizontalSizeClass)
+    }
+}
+
+private struct StatefulThemeProbe: View {
+    @State private var identity = UUID()
+
+    let onRender: (UUID) -> Void
+
+    var body: some View {
+        onRender(identity)
+        return Color.clear
     }
 }
 

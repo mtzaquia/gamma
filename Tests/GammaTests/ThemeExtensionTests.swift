@@ -161,6 +161,22 @@ struct ThemeExtensionTests {
         })
     }
 
+    @Test("Environment registration values compare by family identity")
+    func environmentRegistrationsCompareByFamilyIdentity() {
+        let gradients = ThemeExtensionRegistrations([
+            ThemeExtensionRegistration(Theme.TestGradients.self),
+        ])
+        let sameGradients = ThemeExtensionRegistrations([
+            ThemeExtensionRegistration(Theme.TestGradients.self),
+        ])
+        let units = ThemeExtensionRegistrations([
+            ThemeExtensionRegistration(Theme.Units.self),
+        ])
+
+        #expect(gradients == sameGradients)
+        #expect(gradients != units)
+    }
+
     @Test("Extension overrides replace modes and invalidate decoded-token caches")
     func extensionOverridesReplaceModes() throws {
         var theme = try decode(Self.themeJSON)

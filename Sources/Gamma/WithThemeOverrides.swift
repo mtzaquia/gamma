@@ -202,7 +202,7 @@ public struct WithThemeOverrides<Content: View>: View {
                 ThemeDiagnostics.validate(
                     theme,
                     modes: modes,
-                    extensions: themeExtensions,
+                    extensions: themeExtensions.values,
                     additionalIssues: issues,
                     isOverride: true
                 )

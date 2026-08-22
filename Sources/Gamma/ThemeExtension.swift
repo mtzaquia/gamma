@@ -131,7 +131,7 @@ public extension ThemeTokenGroup {
 /// verifies that every token contains it.
 public struct ThemeExtensionRegistration {
     let identifier: ObjectIdentifier
-    let validationImplementation: (RawTheme, ThemeModes?) -> [ThemeValidationIssue]
+    private let validator: any ThemeExtensionValidating
 
     /// Creates a registration for a theme extension family.
     ///
@@ -139,12 +139,51 @@ public struct ThemeExtensionRegistration {
     public init<Extension: ThemeExtension>(_ family: Extension.Type)
     where Extension.Selection == String {
         identifier = ObjectIdentifier(Extension.self)
-        validationImplementation = { theme, modes in
-            theme.extensionValidationIssues(
-                for: family,
-                modes: modes
-            )
-        }
+        validator = TypedThemeExtensionValidator(family: family)
+    }
+
+    func validationIssues(
+        in theme: RawTheme,
+        modes: ThemeModes?
+    ) -> [ThemeValidationIssue] {
+        validator.validationIssues(in: theme, modes: modes)
+    }
+}
+
+private protocol ThemeExtensionValidating {
+    func validationIssues(
+        in theme: RawTheme,
+        modes: ThemeModes?
+    ) -> [ThemeValidationIssue]
+}
+
+private struct TypedThemeExtensionValidator<Extension: ThemeExtension>: ThemeExtensionValidating
+where Extension.Selection == String {
+    let family: Extension.Type
+
+    func validationIssues(
+        in theme: RawTheme,
+        modes: ThemeModes?
+    ) -> [ThemeValidationIssue] {
+        theme.extensionValidationIssues(for: family, modes: modes)
+    }
+}
+
+struct ThemeExtensionRegistrations: Equatable {
+    static let empty = Self([])
+
+    let values: [ThemeExtensionRegistration]
+    private let identifiers: [ObjectIdentifier]
+
+    var count: Int { values.count }
+
+    init(_ values: [ThemeExtensionRegistration]) {
+        self.values = values
+        identifiers = values.map(\.identifier)
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.identifiers == rhs.identifiers
     }
 }
 

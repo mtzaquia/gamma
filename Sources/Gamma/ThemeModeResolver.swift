@@ -204,18 +204,18 @@ public struct DefaultThemeModeResolver: ThemeModeResolving {
 
 struct AnyThemeModeResolver: Hashable {
     private let identity: AnyHashable
-    private let modesImplementation: (ThemeModeContext) -> ThemeModes
+    private let resolver: any ThemeModeResolving
 
     init<Resolver: ThemeModeResolving>(_ resolver: Resolver) {
         identity = AnyHashable(ThemeModeResolverIdentity(
             type: ObjectIdentifier(Resolver.self),
             state: resolver.cacheIdentity
         ))
-        modesImplementation = resolver.modes
+        self.resolver = resolver
     }
 
     func modes(for context: ThemeModeContext) -> ThemeModes {
-        modesImplementation(context)
+        resolver.modes(for: context)
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {

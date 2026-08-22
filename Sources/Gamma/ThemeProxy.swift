@@ -55,7 +55,7 @@ public struct ThemeProxy: DynamicProperty {
         ThemeDiagnostics.validate(
             theme,
             modes: modes,
-            extensions: themeExtensions
+            extensions: themeExtensions.values
         )
         return Snapshot(
             theme: theme,

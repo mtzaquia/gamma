@@ -28,6 +28,9 @@ public extension View {
     ///
     /// The decoded value is cached by resource and bundle so repeated SwiftUI
     /// body evaluations do not reread the JSON or create new theme identities.
+    /// Gamma loads the resource and registers supplied fonts from a view task,
+    /// then mounts the themed content. If the resource changes later, the
+    /// currently installed theme remains active until its replacement is ready.
     /// Use ``ThemeResource/load(from:)`` directly when loading failure is recoverable.
     ///
     /// - Parameters:
@@ -39,13 +42,20 @@ public extension View {
         bundle: Bundle = .main,
         fontURLs: [URL] = []
     ) -> some View {
-        theme(
-            ThemeResourceCache.load(resource, from: bundle),
+        ThemeInstallationView(
+            content: self,
+            source: .resource(resource, bundle: bundle),
+            modeResolver: DefaultThemeModeResolver(),
+            extensions: [],
             fontURLs: fontURLs
         )
     }
 
     /// Loads a generated bundled theme with custom mode and family support.
+    ///
+    /// Gamma loads the resource and registers supplied fonts from a view task,
+    /// then mounts the themed content. If the resource changes later, the
+    /// currently installed theme remains active until its replacement is ready.
     ///
     /// - Parameters:
     ///   - resource: The generated theme resource to install.
@@ -60,8 +70,9 @@ public extension View {
         extensions: [ThemeExtensionRegistration] = [],
         fontURLs: [URL] = []
     ) -> some View {
-        theme(
-            ThemeResourceCache.load(resource, from: bundle),
+        ThemeInstallationView(
+            content: self,
+            source: .resource(resource, bundle: bundle),
             modeResolver: modeResolver,
             extensions: extensions,
             fontURLs: fontURLs
@@ -70,6 +81,12 @@ public extension View {
 
     /// Injects a theme into the view hierarchy, applying default font and text colors.
     ///
+    /// When `fontURLs` is empty, the decoded theme is available to the subtree
+    /// immediately. Otherwise Gamma registers the fonts from a view task and
+    /// mounts the themed content after registration completes. A later theme
+    /// replacement keeps the currently installed theme active until its fonts
+    /// are ready.
+    ///
     /// - Parameters:
     ///   - rawTheme: The decoded theme to activate.
     ///   - fontURLs: Local font-file URLs to register before rendering.
@@ -77,14 +94,22 @@ public extension View {
         _ rawTheme: RawTheme,
         fontURLs: [URL] = []
     ) -> some View {
-        theme(
-            rawTheme,
+        ThemeInstallationView(
+            content: self,
+            source: .rawTheme(rawTheme),
             modeResolver: DefaultThemeModeResolver(),
+            extensions: [],
             fontURLs: fontURLs
         )
     }
 
     /// Injects a theme, mode resolver, and consumer-defined token families.
+    ///
+    /// When `fontURLs` is empty, the decoded theme is available to the subtree
+    /// immediately. Otherwise Gamma registers the fonts from a view task and
+    /// mounts the themed content after registration completes. A later theme
+    /// replacement keeps the currently installed theme active until its fonts
+    /// are ready.
     ///
     /// - Parameters:
     ///   - rawTheme: The decoded theme to activate.
@@ -97,12 +122,108 @@ public extension View {
         extensions: [ThemeExtensionRegistration] = [],
         fontURLs: [URL] = []
     ) -> some View {
-        self
-            .modifier(ThemeModifier(defaults: rawTheme.defaults, fontURLs: fontURLs))
-            .environment(\.theme, rawTheme)
-            .environment(\.themeModeResolver, AnyThemeModeResolver(modeResolver))
-            .environment(\.themeExtensions, extensions)
+        ThemeInstallationView(
+            content: self,
+            source: .rawTheme(rawTheme),
+            modeResolver: modeResolver,
+            extensions: extensions,
+            fontURLs: fontURLs
+        )
     }
+}
+
+private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResolving>: View {
+    @State private var installedTheme: RawTheme?
+
+    let content: Content
+    let source: ThemeInstallationSource
+    let modeResolver: ModeResolver
+    let extensions: ThemeExtensionRegistrations
+    let fontURLs: [URL]
+
+    var body: some View {
+        Group {
+            if let activeTheme {
+                content
+                    .modifier(ThemeModifier(defaults: activeTheme.defaults))
+                    .environment(\.theme, activeTheme)
+                    .environment(\.themeModeResolver, AnyThemeModeResolver(modeResolver))
+                    .environment(\.themeExtensions, extensions)
+            }
+        }
+        .task(id: installationID) {
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+
+            let theme = source.load()
+            Registrar.registerFonts(at: fontURLs)
+
+            guard !Task.isCancelled else { return }
+            installedTheme = theme
+        }
+    }
+
+    init(
+        content: Content,
+        source: ThemeInstallationSource,
+        modeResolver: ModeResolver,
+        extensions: [ThemeExtensionRegistration],
+        fontURLs: [URL]
+    ) {
+        self.content = content
+        self.source = source
+        self.modeResolver = modeResolver
+        self.extensions = ThemeExtensionRegistrations(extensions)
+        self.fontURLs = fontURLs
+        _installedTheme = State(initialValue: source.immediateTheme(fontURLs: fontURLs))
+    }
+
+    private var activeTheme: RawTheme? {
+        source.immediateTheme(fontURLs: fontURLs) ?? installedTheme
+    }
+
+    private var installationID: ThemeInstallationID {
+        ThemeInstallationID(source: source.id, fontURLs: fontURLs)
+    }
+}
+
+private enum ThemeInstallationSource {
+    case rawTheme(RawTheme)
+    case resource(ThemeResource, bundle: Bundle)
+
+    var id: ThemeInstallationSourceID {
+        switch self {
+        case let .rawTheme(theme):
+            .rawTheme(theme)
+        case let .resource(resource, bundle):
+            .resource(resource, bundleURL: bundle.bundleURL.standardizedFileURL)
+        }
+    }
+
+    func immediateTheme(fontURLs: [URL]) -> RawTheme? {
+        guard fontURLs.isEmpty else { return nil }
+        guard case let .rawTheme(theme) = self else { return nil }
+        return theme
+    }
+
+    func load() -> RawTheme {
+        switch self {
+        case let .rawTheme(theme):
+            theme
+        case let .resource(resource, bundle):
+            ThemeResourceCache.load(resource, from: bundle)
+        }
+    }
+}
+
+private struct ThemeInstallationID: Hashable {
+    let source: ThemeInstallationSourceID
+    let fontURLs: [URL]
+}
+
+private enum ThemeInstallationSourceID: Hashable {
+    case rawTheme(RawTheme)
+    case resource(ThemeResource, bundleURL: URL)
 }
 
 private struct ThemeModifier: ViewModifier {
@@ -114,26 +235,21 @@ private struct ThemeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         let themeFont = theme.font(fontAlias)
+        let secondaryTextStyle = secondaryTextColorAlias.map {
+            AnyShapeStyle(theme.color($0))
+        } ?? AnyShapeStyle(.secondary)
 
-        Group {
-            if let secondaryTextColorAlias {
-                content
-                    .foregroundStyle(
-                        theme.color(primaryTextColorAlias),
-                        theme.color(secondaryTextColorAlias)
-                    )
-            } else {
-                content
-                    .foregroundStyle(theme.color(primaryTextColorAlias))
-            }
-        }
-        .font(themeFont)
+        content
+            .foregroundStyle(
+                theme.color(primaryTextColorAlias),
+                secondaryTextStyle
+            )
+            .font(themeFont)
     }
 
-    init(defaults: RawDefaults, fontURLs: [URL]) {
+    init(defaults: RawDefaults) {
         fontAlias = Theme.Alias(rawValue: defaults.font)
         primaryTextColorAlias = Theme.Alias(rawValue: defaults.primaryTextColor)
         secondaryTextColorAlias = defaults.secondaryTextColor.map(Theme.Alias.init(rawValue:))
-        Registrar.registerFonts(at: fontURLs)
     }
 }

@@ -30,23 +30,30 @@ import UIKit
 struct ThemeResourceModifierTests {
     @Test("Bundled resources are cached and can be installed directly")
     func bundledResourceModifier() async {
+        ThemeResourceCache.removeAll()
         let resource = ThemeResource(fileName: "Modifier.theme.json")
-        let first = ThemeResourceCache.load(resource, from: .module)
-        let second = ThemeResourceCache.load(resource, from: .module)
         var resolvedUnit: CGFloat?
-
-        #expect(first == second)
 
         let view = ResourceUnitProbe { resolvedUnit = $0 }
             .theme(resource, bundle: .module)
+        #expect(ThemeResourceCache.count == 0)
+
         let controller = UIHostingController(rootView: view)
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = controller
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
-        await Task.yield()
+        for _ in 0..<3 {
+            await Task.yield()
+            window.layoutIfNeeded()
+        }
+
+        let first = ThemeResourceCache.load(resource, from: .module)
+        let second = ThemeResourceCache.load(resource, from: .module)
 
         #expect(resolvedUnit == 12)
+        #expect(ThemeResourceCache.count == 1)
+        #expect(first == second)
         window.isHidden = true
     }
 }

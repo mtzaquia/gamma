@@ -75,6 +75,12 @@ struct ThemeResourceCacheKey: Hashable {
 enum ThemeResourceCache {
     private static var themes: [ThemeResourceCacheKey: RawTheme] = [:]
 
+    static var count: Int { themes.count }
+
+    static func removeAll() {
+        themes.removeAll()
+    }
+
     static func load(_ resource: ThemeResource, from bundle: Bundle) -> RawTheme {
         let key = ThemeResourceCacheKey(
             fileName: resource.fileName,
