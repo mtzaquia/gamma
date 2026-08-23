@@ -22,9 +22,17 @@
 
 import SwiftUI
 
+struct ThemeFontRegistrationContext: Hashable {
+    static let ready = Self(revision: 0, isPending: false)
+
+    let revision: Int
+    let isPending: Bool
+}
+
 extension EnvironmentValues {
     @Entry var theme: RawTheme = .empty
     @Entry var themeModeResolver: AnyThemeModeResolver = .init(DefaultThemeModeResolver())
     @Entry var themeExtensions: ThemeExtensionRegistrations = .empty
+    @Entry var themeFontRegistration = ThemeFontRegistrationContext.ready
     @Entry var themeFontLineHeight: CGFloat? = nil
 }

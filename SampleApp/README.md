@@ -33,7 +33,7 @@ If Xcode compiled the plugin but aliases are missing, use **Product → Clean Bu
 
 The bundled Noto Sans and Noto Sans Arabic files come from the official [Noto Fonts repository](https://github.com/notofonts/noto-fonts). They are redistributed under the SIL Open Font License 1.1 included in [OFL.txt](SampleApp/Fonts/OFL.txt).
 
-The root installs the generated theme resource and both bundled font URLs in one call: `.theme(ThemeResource.sampleTheme, modeResolver: SampleThemeModeResolver(), fontURLs: SampleTheme.fontURLs)`. Naming `ThemeResource` explicitly keeps Swift's overload resolution unambiguous while the declaration itself remains build-plug-in generated. Gamma caches the decoded resource, discovers the PostScript names, registers each face before rendering, and avoids repeating successful work during later body evaluations.
+The root installs the generated theme resource and both bundled font URLs in one call: `.theme(ThemeResource.sampleTheme, modeResolver: SampleThemeModeResolver(), fontURLs: SampleTheme.fontURLs)`. Naming `ThemeResource` explicitly keeps Swift's overload resolution unambiguous while the declaration itself remains build-plug-in generated. Gamma mounts the content immediately, caches the decoded resource, registers each face asynchronously, and refreshes themed text in place without repeating successful work during later body evaluations.
 
 ## Deterministic UI tests
 

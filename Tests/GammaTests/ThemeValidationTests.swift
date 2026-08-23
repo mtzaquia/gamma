@@ -196,9 +196,15 @@ struct ThemeValidationTests {
 
         let issues = theme.validationIssues(modes: modes)
             .filter { $0.path.hasSuffix(".fontName") }
+        let pendingIssues = theme.validationIssues(
+            modes: modes,
+            validatesFontAvailability: false
+        )
+            .filter { $0.path.hasSuffix(".fontName") }
 
         #expect(issues.count == 1)
         #expect(issues.allSatisfy { $0.message.contains(unavailableName) })
+        #expect(pendingIssues.isEmpty)
     }
 
     @Test("Separately decoded payloads with the same logical ID have distinct runtime identity")

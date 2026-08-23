@@ -28,7 +28,7 @@ import UIKit
 import AppKit
 #endif
 
-struct FontRegistrationIssue: Hashable {
+nonisolated struct FontRegistrationIssue: Hashable, Sendable {
     let fileName: String
     let reason: String
 
@@ -37,30 +37,30 @@ struct FontRegistrationIssue: Hashable {
     }
 }
 
-struct RegisteredFont: Hashable {
+nonisolated struct RegisteredFont: Hashable, Sendable {
     let fileName: String
     let postScriptName: String
 }
 
-struct FontRegistrationReport: Equatable {
+nonisolated struct FontRegistrationReport: Equatable, Sendable {
     var availablePostScriptNames: Set<String> = []
     var newlyRegistered: [RegisteredFont] = []
     var issues: [FontRegistrationIssue] = []
 }
 
-enum FontRegistrationAttempt: Equatable {
+nonisolated enum FontRegistrationAttempt: Equatable, Sendable {
     case registered
     case alreadyRegistered
     case failed(String)
 }
 
-protocol FontRegistrationBackend {
+nonisolated protocol FontRegistrationBackend {
     func loadFont(at url: URL) -> CGFont?
     func isFontAvailable(named postScriptName: String) -> Bool
     func register(_ font: CGFont) -> FontRegistrationAttempt
 }
 
-final class FontRegistrar {
+nonisolated final class FontRegistrar {
     private let backend: any FontRegistrationBackend
     private var postScriptNameByURL: [URL: String] = [:]
     private var availablePostScriptNames: Set<String> = []
@@ -127,11 +127,11 @@ final class FontRegistrar {
 }
 
 enum Registrar {
-    private static let fontRegistrar = FontRegistrar(backend: CoreTextFontRegistrationBackend())
+    private static let worker = FontRegistrationWorker()
 
     @discardableResult
-    static func registerFonts(at urls: [URL]) -> Set<String> {
-        let report = fontRegistrar.registerFonts(at: urls)
+    static func registerFonts(at urls: [URL]) async -> Set<String> {
+        let report = await worker.registerFonts(at: urls)
 
         for font in report.newlyRegistered {
             gammaLog.gammaDebug(.fontRegistered(
@@ -145,7 +145,15 @@ enum Registrar {
     }
 }
 
-private struct CoreTextFontRegistrationBackend: FontRegistrationBackend {
+private actor FontRegistrationWorker {
+    private let registrar = FontRegistrar(backend: CoreTextFontRegistrationBackend())
+
+    func registerFonts(at urls: [URL]) -> FontRegistrationReport {
+        registrar.registerFonts(at: urls)
+    }
+}
+
+nonisolated private struct CoreTextFontRegistrationBackend: FontRegistrationBackend {
     private let availabilityBackend = PlatformFontAvailabilityBackend()
 
     func loadFont(at url: URL) -> CGFont? {
@@ -175,11 +183,11 @@ private struct CoreTextFontRegistrationBackend: FontRegistrationBackend {
     }
 }
 
-protocol FontAvailabilityBackend {
+nonisolated protocol FontAvailabilityBackend {
     func isFontAvailable(named postScriptName: String, size: CGFloat) -> Bool
 }
 
-struct PlatformFontAvailabilityBackend: FontAvailabilityBackend {
+nonisolated struct PlatformFontAvailabilityBackend: FontAvailabilityBackend {
     func isFontAvailable(named postScriptName: String, size: CGFloat) -> Bool {
 #if canImport(UIKit)
         UIFont(name: postScriptName, size: size) != nil

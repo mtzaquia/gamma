@@ -18,13 +18,13 @@ This includes broken defaults, token metadata, empty mode dictionaries, invalid 
 
 ## Font registration
 
-`.theme(..., fontURLs:)` checks every supplied local file before rendering. Unreadable files, missing PostScript names, and Core Text registration errors are collected into one warning and one debug assertion instead of producing a stream of per-file messages. Core Text's already-registered response is treated as success.
+`.theme(..., fontURLs:)` checks every supplied local file asynchronously after mounting the content. Unreadable files, missing PostScript names, and Core Text registration errors are collected into one warning and one debug assertion instead of producing a stream of per-file messages. Core Text's already-registered response is treated as success.
 
 At `.trace`, successful registration logs include both the filename and the discovered PostScript name. This makes it possible to compare the file with the theme's `fontName` without introducing a separate font manifest.
 
 Registration diagnostics describe supplied files. A JSON `fontName` may legitimately refer to a system font or a face registered elsewhere, so Gamma does not require every theme font to appear in `fontURLs`. Keep the JSON value equal to the actual PostScript name; UIKit or AppKit may substitute another face when an unavailable name reaches its font descriptor.
 
-After registering supplied files, runtime theme validation checks every resolver-selected primary and cascade face with UIKit on iOS or AppKit on macOS. An unavailable PostScript name is included in the theme's consolidated warning and triggers the same debug assertion as other selected-mode drift.
+While registration is pending, runtime theme validation checks the schema and resolver-selected modes but defers font availability. After registration, it checks every selected primary and cascade face with UIKit on iOS or AppKit on macOS. An unavailable PostScript name is included in the theme's consolidated warning and triggers the same debug assertion as other selected-mode drift.
 
 ## Resolver validation
 

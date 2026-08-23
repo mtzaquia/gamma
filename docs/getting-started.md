@@ -131,7 +131,7 @@ ContentView()
   )
 ```
 
-Gamma registers the supplied files before rendering, then checks that the resolver-selected primary and cascade PostScript names are available. The app only needs to provide local URLs; it does not need a second font manifest.
+Gamma renders immediately with system fallbacks for unavailable faces, registers the supplied files asynchronously, and then refreshes affected text in place. Once registration finishes, it checks that the resolver-selected primary and cascade PostScript names are available. The app only needs to provide local URLs; it does not need a second font manifest.
 
 Use `try ThemeResource.app.load(from:)` directly only when missing or malformed bundled configuration is recoverable and the app wants to present its own fallback UI.
 

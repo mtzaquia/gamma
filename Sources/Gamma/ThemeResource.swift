@@ -34,6 +34,10 @@ public struct ThemeResource: Hashable, Sendable {
 
     /// Loads and validates this theme from a bundle.
     public func load(from bundle: Bundle = .main) throws -> RawTheme {
+        try Self.load(fileName: fileName, from: bundle)
+    }
+
+    nonisolated static func load(fileName: String, from bundle: Bundle) throws -> RawTheme {
         let fileURL = URL(fileURLWithPath: fileName)
         let resourceName = fileURL.deletingPathExtension().lastPathComponent
         let resourceExtension = fileURL.pathExtension
@@ -67,21 +71,37 @@ public enum ThemeResourceError: Error, LocalizedError {
     }
 }
 
-struct ThemeResourceCacheKey: Hashable {
+nonisolated struct ThemeResourceCacheKey: Hashable, Sendable {
     let fileName: String
     let bundleURL: URL
 }
 
 enum ThemeResourceCache {
-    private static var themes: [ThemeResourceCacheKey: RawTheme] = [:]
+    private static let store = ThemeResourceStore()
 
-    static var count: Int { themes.count }
+    static func count() async -> Int {
+        await store.count
+    }
 
-    static func removeAll() {
+    static func removeAll() async {
+        await store.removeAll()
+    }
+
+    static func load(_ resource: ThemeResource, from bundle: Bundle) async -> RawTheme {
+        await store.load(resource, from: bundle)
+    }
+}
+
+private actor ThemeResourceStore {
+    private var themes: [ThemeResourceCacheKey: RawTheme] = [:]
+
+    var count: Int { themes.count }
+
+    func removeAll() {
         themes.removeAll()
     }
 
-    static func load(_ resource: ThemeResource, from bundle: Bundle) -> RawTheme {
+    func load(_ resource: ThemeResource, from bundle: Bundle) -> RawTheme {
         let key = ThemeResourceCacheKey(
             fileName: resource.fileName,
             bundleURL: bundle.bundleURL.standardizedFileURL
@@ -91,7 +111,7 @@ enum ThemeResourceCache {
         }
 
         do {
-            let theme = try resource.load(from: bundle)
+            let theme = try ThemeResource.load(fileName: resource.fileName, from: bundle)
             themes[key] = theme
             return theme
         } catch {

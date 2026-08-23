@@ -72,11 +72,19 @@ public struct ThemeFont: Hashable {
 
     /// Returns the SwiftUI `Font` scaled to the given Dynamic Type size.
     public func font(for dynamicTypeSize: DynamicTypeSize) -> Font {
+        font(for: dynamicTypeSize, registrationRevision: 0)
+    }
+
+    func font(
+        for dynamicTypeSize: DynamicTypeSize,
+        registrationRevision: Int
+    ) -> Font {
         let cacheKey = ThemeFontCacheKey(
             fontName: fontName,
             cascadeFontNames: cascadeFontNames,
             size: baseFontSize,
-            dynamicTypeSize: dynamicTypeSize
+            dynamicTypeSize: dynamicTypeSize,
+            registrationRevision: registrationRevision
         )
 
         if let cached = ThemeProxyCache.swiftUIFontCache[cacheKey] {
@@ -84,9 +92,15 @@ public struct ThemeFont: Hashable {
         }
 
 #if canImport(UIKit)
-        let result = Font(uiFont(for: dynamicTypeSize))
+        let result = Font(uiFont(
+            for: dynamicTypeSize,
+            registrationRevision: registrationRevision
+        ))
 #elseif canImport(AppKit)
-        let result = Font(nsFont(for: dynamicTypeSize) as CTFont)
+        let result = Font(nsFont(
+            for: dynamicTypeSize,
+            registrationRevision: registrationRevision
+        ) as CTFont)
 #endif
         ThemeProxyCache.swiftUIFontCache[cacheKey] = result
         return result
@@ -95,11 +109,19 @@ public struct ThemeFont: Hashable {
 #if canImport(UIKit)
     /// Returns the `UIFont` scaled to the given Dynamic Type size.
     public func uiFont(for dynamicTypeSize: DynamicTypeSize) -> UIFont {
+        uiFont(for: dynamicTypeSize, registrationRevision: 0)
+    }
+
+    private func uiFont(
+        for dynamicTypeSize: DynamicTypeSize,
+        registrationRevision: Int
+    ) -> UIFont {
         let cacheKey = ThemeFontCacheKey(
             fontName: fontName,
             cascadeFontNames: cascadeFontNames,
             size: baseFontSize,
-            dynamicTypeSize: dynamicTypeSize
+            dynamicTypeSize: dynamicTypeSize,
+            registrationRevision: registrationRevision
         )
 
         if let cached = ThemeProxyCache.uiFontCache[cacheKey] {
@@ -125,11 +147,19 @@ public struct ThemeFont: Hashable {
 #elseif canImport(AppKit)
     /// Returns the `NSFont` scaled to the given Dynamic Type size.
     public func nsFont(for dynamicTypeSize: DynamicTypeSize) -> NSFont {
+        nsFont(for: dynamicTypeSize, registrationRevision: 0)
+    }
+
+    private func nsFont(
+        for dynamicTypeSize: DynamicTypeSize,
+        registrationRevision: Int
+    ) -> NSFont {
         let cacheKey = ThemeFontCacheKey(
             fontName: fontName,
             cascadeFontNames: cascadeFontNames,
             size: baseFontSize,
-            dynamicTypeSize: dynamicTypeSize
+            dynamicTypeSize: dynamicTypeSize,
+            registrationRevision: registrationRevision
         )
 
         if let cached = ThemeProxyCache.nsFontCache[cacheKey] {

@@ -22,6 +22,7 @@
 
 import CoreGraphics
 import Foundation
+import SwiftUI
 import Testing
 #if canImport(UIKit)
 import UIKit
@@ -115,6 +116,61 @@ struct FontRegistrarTests {
             named: "Gamma-Definitely-Not-Installed",
             size: 12
         ))
+    }
+
+    @Test("Font invalidation removes primary and cascade concrete cache entries")
+    func fontInvalidationRemovesMatchingConcreteEntries() {
+        let primaryKey = ThemeFontCacheKey(
+            fontName: "Gamma-Primary-Test",
+            cascadeFontNames: [],
+            size: 12,
+            dynamicTypeSize: .medium
+        )
+        let cascadeKey = ThemeFontCacheKey(
+            fontName: "Gamma-Unrelated-Test",
+            cascadeFontNames: ["Gamma-Cascade-Test"],
+            size: 12,
+            dynamicTypeSize: .medium
+        )
+        let retainedKey = ThemeFontCacheKey(
+            fontName: "Gamma-Retained-Test",
+            cascadeFontNames: [],
+            size: 12,
+            dynamicTypeSize: .medium
+        )
+
+#if canImport(UIKit)
+        let platformFont = UIFont.systemFont(ofSize: 12)
+        ThemeProxyCache.uiFontCache[primaryKey] = platformFont
+        ThemeProxyCache.uiFontCache[cascadeKey] = platformFont
+        ThemeProxyCache.uiFontCache[retainedKey] = platformFont
+#elseif canImport(AppKit)
+        let platformFont = NSFont.systemFont(ofSize: 12)
+        ThemeProxyCache.nsFontCache[primaryKey] = platformFont
+        ThemeProxyCache.nsFontCache[cascadeKey] = platformFont
+        ThemeProxyCache.nsFontCache[retainedKey] = platformFont
+#endif
+        ThemeProxyCache.swiftUIFontCache[primaryKey] = .system(size: 12)
+        ThemeProxyCache.swiftUIFontCache[cascadeKey] = .system(size: 12)
+        ThemeProxyCache.swiftUIFontCache[retainedKey] = .system(size: 12)
+
+        ThemeProxyCache.invalidateFonts(named: [
+            "Gamma-Primary-Test",
+            "Gamma-Cascade-Test",
+        ])
+
+#if canImport(UIKit)
+        #expect(ThemeProxyCache.uiFontCache[primaryKey] == nil)
+        #expect(ThemeProxyCache.uiFontCache[cascadeKey] == nil)
+        #expect(ThemeProxyCache.uiFontCache[retainedKey] != nil)
+#elseif canImport(AppKit)
+        #expect(ThemeProxyCache.nsFontCache[primaryKey] == nil)
+        #expect(ThemeProxyCache.nsFontCache[cascadeKey] == nil)
+        #expect(ThemeProxyCache.nsFontCache[retainedKey] != nil)
+#endif
+        #expect(ThemeProxyCache.swiftUIFontCache[primaryKey] == nil)
+        #expect(ThemeProxyCache.swiftUIFontCache[cascadeKey] == nil)
+        #expect(ThemeProxyCache.swiftUIFontCache[retainedKey] != nil)
     }
 }
 

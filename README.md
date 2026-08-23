@@ -93,7 +93,7 @@ That is the core idea: the theme owns raw design values, the resolver chooses mo
 
 The generated `.app` resource and token aliases come from the same `App.theme.json` input. If a target contains multiple exported themes, Gamma generates all resource handles but only one alias surface; generation fails with both file paths if their alias contracts drift.
 
-Server themes use the same runtime path: the app downloads and stores the JSON and font files, then passes the decoded `RawTheme` and local `fontURLs` to `.theme(...)`. Gamma validates, registers, and activates them without owning networking or storage policy. After registration, it also checks that every resolver-selected primary and cascade PostScript name is available. Remote themes must preserve the alias contract compiled into the app; a runtime-only payload is schema-validated up front and a missing compiled alias is diagnosed when it is read. See [Using tokens](docs/tokens.md#server-provided-themes-and-fonts).
+Server themes use the same runtime path: the app downloads and stores the JSON and font files, then passes the decoded `RawTheme` and local `fontURLs` to `.theme(...)`. Gamma activates the theme immediately, registers supplied fonts asynchronously, and refreshes themed text in place when they become available without owning networking or storage policy. After registration, it also checks that every resolver-selected primary and cascade PostScript name is available. Remote themes must preserve the alias contract compiled into the app; a runtime-only payload is schema-validated up front and a missing compiled alias is diagnosed when it is read. See [Using tokens](docs/tokens.md#server-provided-themes-and-fonts).
 
 ## Documentation
 

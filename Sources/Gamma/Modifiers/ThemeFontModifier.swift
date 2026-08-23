@@ -31,12 +31,16 @@ public extension View {
 
 private struct ThemeFontModifier: ViewModifier {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.themeFontRegistration) private var fontRegistration
 
     let themeFont: ThemeFont?
 
     func body(content: Content) -> some View {
         content
-            .font(themeFont?.font(for: dynamicTypeSize))
+            .font(themeFont?.font(
+                for: dynamicTypeSize,
+                registrationRevision: fontRegistration.revision
+            ))
             .lineSpacing(themeFont?.lineSpacing(for: dynamicTypeSize) ?? .zero)
             .kerning(themeFont?.kerning(for: dynamicTypeSize) ?? 0)
             .textCase(themeFont?.textCase)

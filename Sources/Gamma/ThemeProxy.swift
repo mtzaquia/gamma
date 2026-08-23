@@ -35,6 +35,7 @@ public struct ThemeProxy: DynamicProperty {
     @Environment(\.theme) private var theme
     @Environment(\.themeModeResolver) private var modeResolver
     @Environment(\.themeExtensions) private var themeExtensions
+    @Environment(\.themeFontRegistration) private var fontRegistration
 
     private var snapshot: Snapshot?
 
@@ -55,7 +56,8 @@ public struct ThemeProxy: DynamicProperty {
         ThemeDiagnostics.validate(
             theme,
             modes: modes,
-            extensions: themeExtensions.values
+            extensions: themeExtensions.values,
+            validatesFontAvailability: !fontRegistration.isPending
         )
         return Snapshot(
             theme: theme,

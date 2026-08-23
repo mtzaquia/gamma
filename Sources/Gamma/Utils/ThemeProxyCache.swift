@@ -38,14 +38,28 @@ struct ThemeTokenCacheKey: Hashable {
     let alias: String
 }
 
-/// Dynamic Type size is the only system variant of the concrete font object.
-/// Text style is intentionally absent: the runtime scaling pipeline owns it and
-/// callers with the same face, cascade, and base size reuse the scaled result.
+/// Dynamic Type size and font-registration revision identify a concrete font.
+/// Text style is intentionally absent: the runtime scaling pipeline owns it.
 struct ThemeFontCacheKey: Hashable {
     let fontName: String
     let cascadeFontNames: [String]
     let size: CGFloat
     let dynamicTypeSize: DynamicTypeSize
+    let registrationRevision: Int
+
+    init(
+        fontName: String,
+        cascadeFontNames: [String],
+        size: CGFloat,
+        dynamicTypeSize: DynamicTypeSize,
+        registrationRevision: Int = 0
+    ) {
+        self.fontName = fontName
+        self.cascadeFontNames = cascadeFontNames
+        self.size = size
+        self.dynamicTypeSize = dynamicTypeSize
+        self.registrationRevision = registrationRevision
+    }
 }
 
 /// A small LRU cache. Token data can be server-driven, so every cache has an
@@ -86,6 +100,14 @@ final class BoundedCache<Key: Hashable, Value> {
 
     var count: Int { storage.count }
 
+    func removeAll(where shouldRemove: (Key) -> Bool) {
+        let removedKeys = storage.keys.filter(shouldRemove)
+        for key in removedKeys {
+            storage.removeValue(forKey: key)
+        }
+        recency.removeAll { removedKeys.contains($0) }
+    }
+
     private func markRecentlyUsed(_ key: Key) {
         recency.removeAll { $0 == key }
         recency.append(key)
@@ -109,5 +131,21 @@ enum ThemeProxyCache {
     static let nsFontCache = BoundedCache<ThemeFontCacheKey, NSFont>(countLimit: 256)
 #endif
     static let swiftUIFontCache = BoundedCache<ThemeFontCacheKey, Font>(countLimit: 256)
+
+    static func invalidateFonts(named postScriptNames: Set<String>) {
+        guard !postScriptNames.isEmpty else { return }
+
+        let usesInvalidatedFont: (ThemeFontCacheKey) -> Bool = { key in
+            postScriptNames.contains(key.fontName)
+                || !postScriptNames.isDisjoint(with: key.cascadeFontNames)
+        }
+
+#if canImport(UIKit)
+        uiFontCache.removeAll(where: usesInvalidatedFont)
+#elseif canImport(AppKit)
+        nsFontCache.removeAll(where: usesInvalidatedFont)
+#endif
+        swiftUIFontCache.removeAll(where: usesInvalidatedFont)
+    }
 
 }

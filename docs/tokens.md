@@ -168,7 +168,7 @@ private var bodyAttributes: AttributeContainer {
 
 ## Register custom fonts
 
-Pass local font-file URLs when installing the theme. Gamma reads their PostScript names and registers each face before rendering the themed subtree.
+Pass local font-file URLs when installing the theme. Gamma renders the themed subtree immediately, using the system fallback for unavailable faces while it registers each supplied font asynchronously. The affected text refreshes in place after registration without replacing descendant view state.
 
 ```swift
 AppRoot()
@@ -185,7 +185,7 @@ The JSON `fontName` is already the contract: it must be the face's PostScript na
 
 Registration is idempotent for the lifetime of the process. Repeated SwiftUI body evaluations do not reread the same successful URL, the same PostScript name supplied from different cache URLs is registered only once, and a font already registered by the app or another framework is treated as available.
 
-Supplied files are first validated independently, so system fonts and faces registered elsewhere do not need entries in `fontURLs`. After registration, Gamma checks every resolver-selected primary and cascade `fontName` through UIKit on iOS or AppKit on macOS. An unavailable PostScript name joins the consolidated theme diagnostic and triggers a debug assertion. Enable trace diagnostics while integrating custom faces to compare discovered PostScript names with the JSON.
+Supplied files are first validated independently, so system fonts and faces registered elsewhere do not need entries in `fontURLs`. Gamma defers font-availability validation while registration is pending. After registration, it checks every resolver-selected primary and cascade `fontName` through UIKit on iOS or AppKit on macOS. An unavailable PostScript name joins the consolidated theme diagnostic and triggers a debug assertion. Enable trace diagnostics while integrating custom faces to compare discovered PostScript names with the JSON.
 
 ### Server-provided themes and fonts
 

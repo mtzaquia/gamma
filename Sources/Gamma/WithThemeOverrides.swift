@@ -183,6 +183,7 @@ public struct WithThemeOverrides<Content: View>: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.themeExtensions) private var themeExtensions
     @Environment(\.themeModeResolver) private var modeResolver
+    @Environment(\.themeFontRegistration) private var fontRegistration
 
     let overrides: ThemeOverrides
     let content: Content
@@ -204,7 +205,8 @@ public struct WithThemeOverrides<Content: View>: View {
                     modes: modes,
                     extensions: themeExtensions.values,
                     additionalIssues: issues,
-                    isOverride: true
+                    isOverride: true,
+                    validatesFontAvailability: !fontRegistration.isPending
                 )
                 ThemeDiagnostics.overridesApplied(theme, overrides: overrides)
             }

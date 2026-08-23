@@ -28,15 +28,17 @@ public extension View {
     ///
     /// The decoded value is cached by resource and bundle so repeated SwiftUI
     /// body evaluations do not reread the JSON or create new theme identities.
-    /// Gamma loads the resource and registers supplied fonts from a view task,
-    /// then mounts the themed content. If the resource changes later, the
-    /// currently installed theme remains active until its replacement is ready.
+    /// The content mounts immediately using its inherited theme while Gamma
+    /// loads the resource. Supplied fonts register asynchronously; text uses the
+    /// system fallback until registration completes and then refreshes in place.
+    /// If the resource changes later, the installed theme remains active until
+    /// its replacement has loaded.
     /// Use ``ThemeResource/load(from:)`` directly when loading failure is recoverable.
     ///
     /// - Parameters:
     ///   - resource: The generated theme resource to install.
     ///   - bundle: The bundle that contains the resource.
-    ///   - fontURLs: Local font-file URLs to register before rendering.
+    ///   - fontURLs: Local font-file URLs to register after mounting the content.
     func theme(
         _ resource: ThemeResource,
         bundle: Bundle = .main,
@@ -53,16 +55,18 @@ public extension View {
 
     /// Loads a generated bundled theme with custom mode and family support.
     ///
-    /// Gamma loads the resource and registers supplied fonts from a view task,
-    /// then mounts the themed content. If the resource changes later, the
-    /// currently installed theme remains active until its replacement is ready.
+    /// The content mounts immediately using its inherited theme while Gamma
+    /// loads the resource. Supplied fonts register asynchronously; text uses the
+    /// system fallback until registration completes and then refreshes in place.
+    /// If the resource changes later, the installed theme remains active until
+    /// its replacement has loaded.
     ///
     /// - Parameters:
     ///   - resource: The generated theme resource to install.
     ///   - bundle: The bundle that contains the resource.
     ///   - modeResolver: The policy that selects built-in and custom token modes.
     ///   - extensions: Consumer-defined token families to validate during installation.
-    ///   - fontURLs: Local font-file URLs to register before rendering.
+    ///   - fontURLs: Local font-file URLs to register after mounting the content.
     func theme<ModeResolver: ThemeModeResolving>(
         _ resource: ThemeResource,
         bundle: Bundle = .main,
@@ -81,15 +85,13 @@ public extension View {
 
     /// Injects a theme into the view hierarchy, applying default font and text colors.
     ///
-    /// When `fontURLs` is empty, the decoded theme is available to the subtree
-    /// immediately. Otherwise Gamma registers the fonts from a view task and
-    /// mounts the themed content after registration completes. A later theme
-    /// replacement keeps the currently installed theme active until its fonts
-    /// are ready.
+    /// The decoded theme is available to the subtree immediately. Supplied
+    /// fonts register asynchronously; text uses the system fallback until
+    /// registration completes and then refreshes without replacing the subtree.
     ///
     /// - Parameters:
     ///   - rawTheme: The decoded theme to activate.
-    ///   - fontURLs: Local font-file URLs to register before rendering.
+    ///   - fontURLs: Local font-file URLs to register after mounting the content.
     func theme(
         _ rawTheme: RawTheme,
         fontURLs: [URL] = []
@@ -105,17 +107,15 @@ public extension View {
 
     /// Injects a theme, mode resolver, and consumer-defined token families.
     ///
-    /// When `fontURLs` is empty, the decoded theme is available to the subtree
-    /// immediately. Otherwise Gamma registers the fonts from a view task and
-    /// mounts the themed content after registration completes. A later theme
-    /// replacement keeps the currently installed theme active until its fonts
-    /// are ready.
+    /// The decoded theme is available to the subtree immediately. Supplied
+    /// fonts register asynchronously; text uses the system fallback until
+    /// registration completes and then refreshes without replacing the subtree.
     ///
     /// - Parameters:
     ///   - rawTheme: The decoded theme to activate.
     ///   - modeResolver: The policy that selects built-in and custom token modes.
     ///   - extensions: Consumer-defined token families to validate during installation.
-    ///   - fontURLs: Local font-file URLs to register before rendering.
+    ///   - fontURLs: Local font-file URLs to register after mounting the content.
     func theme<ModeResolver: ThemeModeResolving>(
         _ rawTheme: RawTheme,
         modeResolver: ModeResolver,
@@ -133,7 +133,10 @@ public extension View {
 }
 
 private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResolving>: View {
+    @Environment(\.theme) private var inheritedTheme
     @State private var installedTheme: RawTheme?
+    @State private var fontRegistrationRevision = 0
+    @State private var completedFontInstallationID: ThemeInstallationID?
 
     let content: Content
     let source: ThemeInstallationSource
@@ -142,25 +145,31 @@ private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResol
     let fontURLs: [URL]
 
     var body: some View {
-        Group {
-            if let activeTheme {
-                content
-                    .modifier(ThemeModifier(defaults: activeTheme.defaults))
-                    .environment(\.theme, activeTheme)
-                    .environment(\.themeModeResolver, AnyThemeModeResolver(modeResolver))
-                    .environment(\.themeExtensions, extensions)
+        content
+            .modifier(ThemeModifier(defaults: activeTheme.defaults))
+            .environment(\.theme, activeTheme)
+            .environment(\.themeModeResolver, AnyThemeModeResolver(modeResolver))
+            .environment(\.themeExtensions, extensions)
+            .environment(\.themeFontRegistration, fontRegistration)
+            .task(id: installationID) {
+                let activeInstallationID = installationID
+                let theme = await source.load()
+                guard !Task.isCancelled else { return }
+                installedTheme = theme
+
+                guard !fontURLs.isEmpty else { return }
+                let postScriptNames = await Registrar.registerFonts(at: fontURLs)
+
+                guard !Task.isCancelled else { return }
+                ThemeProxyCache.invalidateFonts(named: postScriptNames)
+
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    fontRegistrationRevision &+= 1
+                    completedFontInstallationID = activeInstallationID
+                }
             }
-        }
-        .task(id: installationID) {
-            await Task.yield()
-            guard !Task.isCancelled else { return }
-
-            let theme = source.load()
-            Registrar.registerFonts(at: fontURLs)
-
-            guard !Task.isCancelled else { return }
-            installedTheme = theme
-        }
     }
 
     init(
@@ -175,15 +184,22 @@ private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResol
         self.modeResolver = modeResolver
         self.extensions = ThemeExtensionRegistrations(extensions)
         self.fontURLs = fontURLs
-        _installedTheme = State(initialValue: source.immediateTheme(fontURLs: fontURLs))
+        _installedTheme = State(initialValue: source.immediateTheme)
     }
 
-    private var activeTheme: RawTheme? {
-        source.immediateTheme(fontURLs: fontURLs) ?? installedTheme
+    private var activeTheme: RawTheme {
+        source.immediateTheme ?? installedTheme ?? inheritedTheme
     }
 
     private var installationID: ThemeInstallationID {
         ThemeInstallationID(source: source.id, fontURLs: fontURLs)
+    }
+
+    private var fontRegistration: ThemeFontRegistrationContext {
+        ThemeFontRegistrationContext(
+            revision: fontRegistrationRevision,
+            isPending: !fontURLs.isEmpty && completedFontInstallationID != installationID
+        )
     }
 }
 
@@ -200,18 +216,17 @@ private enum ThemeInstallationSource {
         }
     }
 
-    func immediateTheme(fontURLs: [URL]) -> RawTheme? {
-        guard fontURLs.isEmpty else { return nil }
+    var immediateTheme: RawTheme? {
         guard case let .rawTheme(theme) = self else { return nil }
         return theme
     }
 
-    func load() -> RawTheme {
+    func load() async -> RawTheme {
         switch self {
         case let .rawTheme(theme):
             theme
         case let .resource(resource, bundle):
-            ThemeResourceCache.load(resource, from: bundle)
+            await ThemeResourceCache.load(resource, from: bundle)
         }
     }
 }

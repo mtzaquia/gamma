@@ -29,7 +29,8 @@ package typealias ThemeValidationIssue = GammaSchema.ThemeValidationIssue
 extension RawTheme {
     func validationIssues(
         modes: ThemeModes? = nil,
-        extensions: [ThemeExtensionRegistration] = []
+        extensions: [ThemeExtensionRegistration] = [],
+        validatesFontAvailability: Bool = true
     ) -> [ThemeValidationIssue] {
         var issues = schemaValidationIssues()
         issues.append(contentsOf: extensions.flatMap {
@@ -90,7 +91,8 @@ extension RawTheme {
                         continue
                     }
 
-                    if !PlatformFontAvailabilityBackend().isFontAvailable(
+                    if validatesFontAvailability,
+                       !PlatformFontAvailabilityBackend().isFontAvailable(
                         named: value.fontName,
                         size: value.fontSize
                     ) {
@@ -125,13 +127,25 @@ enum ThemeDiagnostics {
         modes: ThemeModes,
         extensions: [ThemeExtensionRegistration] = [],
         additionalIssues: [ThemeValidationIssue] = [],
-        isOverride: Bool = false
+        isOverride: Bool = false,
+        validatesFontAvailability: Bool = true
     ) {
-        let key = validationKey(theme: theme, modes: modes, extensions: extensions)
+        guard theme != .empty else { return }
+
+        let key = validationKey(
+            theme: theme,
+            modes: modes,
+            extensions: extensions,
+            validatesFontAvailability: validatesFontAvailability
+        )
         guard markReported(key) else { return }
 
         let issues = (
-            theme.validationIssues(modes: modes, extensions: extensions)
+            theme.validationIssues(
+                modes: modes,
+                extensions: extensions,
+                validatesFontAvailability: validatesFontAvailability
+            )
                 + additionalIssues
         )
             .uniqueSortedForDiagnostics()
@@ -201,6 +215,8 @@ enum ThemeDiagnostics {
         themeInstanceID: UUID,
         detail: String
     ) {
+        guard themeInstanceID != RawTheme.empty.instanceID else { return }
+
         let key = "resolution|\(themeInstanceID)|\(kind)|\(alias)|\(detail)"
         guard markReported(key) else { return }
         reportFailure("[resolve] ⚠ \(kind) token \(alias.inspecting) could not be resolved | \(detail)")
@@ -209,13 +225,16 @@ enum ThemeDiagnostics {
     private static func validationKey(
         theme: RawTheme,
         modes: ThemeModes,
-        extensions: [ThemeExtensionRegistration]
+        extensions: [ThemeExtensionRegistration],
+        validatesFontAvailability: Bool
     ) -> String {
         let extensionIdentity = extensions
             .map { "\($0.identifier)" }
             .sorted()
             .joined(separator: ",")
-        return "validation|\(theme.instanceID)|\(theme.overrideHash)|\(modes.hashValue)|\(extensionIdentity)"
+        return "validation|\(theme.instanceID)|\(theme.overrideHash)"
+            + "|\(modes.hashValue)|\(extensionIdentity)"
+            + "|fonts=\(validatesFontAvailability)"
     }
 
     private static func markReported(_ key: String) -> Bool {

@@ -28,31 +28,36 @@ import UIKit
 
 @Suite("Theme resource modifier")
 struct ThemeResourceModifierTests {
-    @Test("Bundled resources are cached and can be installed directly")
+    @Test("Bundled resources mount immediately and resolve without replacing content")
     func bundledResourceModifier() async {
-        ThemeResourceCache.removeAll()
+        await ThemeResourceCache.removeAll()
         let resource = ThemeResource(fileName: "Modifier.theme.json")
-        var resolvedUnit: CGFloat?
+        var observations: [(unit: CGFloat, identity: UUID)] = []
 
-        let view = ResourceUnitProbe { resolvedUnit = $0 }
+        let view = ResourceUnitProbe { observations.append($0) }
             .theme(resource, bundle: .module)
-        #expect(ThemeResourceCache.count == 0)
+        #expect(await ThemeResourceCache.count() == 0)
 
         let controller = UIHostingController(rootView: view)
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = controller
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
-        for _ in 0..<3 {
+        let initialIdentity = observations.first?.identity
+
+        for _ in 0..<20 where observations.last?.unit != 12 {
             await Task.yield()
             window.layoutIfNeeded()
         }
 
-        let first = ThemeResourceCache.load(resource, from: .module)
-        let second = ThemeResourceCache.load(resource, from: .module)
+        let first = await ThemeResourceCache.load(resource, from: .module)
+        let second = await ThemeResourceCache.load(resource, from: .module)
 
-        #expect(resolvedUnit == 12)
-        #expect(ThemeResourceCache.count == 1)
+        #expect(initialIdentity != nil)
+        #expect(observations.first?.unit == 0)
+        #expect(observations.last?.unit == 12)
+        #expect(observations.last?.identity == initialIdentity)
+        #expect(await ThemeResourceCache.count() == 1)
         #expect(first == second)
         window.isHidden = true
     }
@@ -67,11 +72,13 @@ private typealias ResourceUnitAlias = Theme.Alias<ResourceUnitGroup>
 
 private struct ResourceUnitProbe: View {
     @ThemeReader private var theme
-    let onResolve: (CGFloat) -> Void
+    @State private var identity = UUID()
+
+    let onResolve: ((unit: CGFloat, identity: UUID)) -> Void
 
     var body: some View {
         let value = theme.unit(ResourceUnitAlias(rawValue: "spacing/default"))
-        onResolve(value)
+        onResolve((value, identity))
         return Color.clear
     }
 }

@@ -21,6 +21,7 @@
 //
 
 #if canImport(UIKit)
+import CoreText
 import Foundation
 import os
 import SwiftUI
@@ -135,6 +136,42 @@ struct ThemeReaderLifecycleTests {
         window.isHidden = true
     }
 
+    @Test("Font registration refresh preserves descendant state")
+    func fontRegistrationRefreshPreservesState() async throws {
+        let systemFont = UIFont.systemFont(ofSize: 12)
+        let coreTextFont = CTFontCreateWithName(
+            systemFont.fontName as CFString,
+            systemFont.pointSize,
+            nil
+        )
+        let fontURL = try #require(
+            CTFontCopyAttribute(coreTextFont, kCTFontURLAttribute) as? URL
+        )
+        let model = try LifecycleModel(themeJSON: Self.themeJSON(compactUnit: 12))
+        var observations: [(identity: UUID, revision: Int)] = []
+        let rootView = FontRegistrationThemeHost(
+            model: model,
+            resolver: CountingModeResolver(counter: ResolutionCounter()),
+            fontURL: fontURL
+        ) { observations.append($0) }
+        let controller = UIHostingController(rootView: rootView)
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+        let initialIdentity = try #require(observations.first?.identity)
+
+        for _ in 0..<30 where observations.last?.revision == 0 {
+            await Task.yield()
+            window.layoutIfNeeded()
+        }
+
+        #expect(observations.first?.revision == 0)
+        #expect(observations.last?.revision == 1)
+        #expect(observations.last?.identity == initialIdentity)
+        window.isHidden = true
+    }
+
     @Test("Bounded caches evict least-recently-used entries")
     func boundedCacheEvictsLeastRecentlyUsedEntry() {
         let cache = BoundedCache<Int, String>(countLimit: 2)
@@ -235,6 +272,34 @@ private struct StatefulThemeProbe: View {
 
     var body: some View {
         onRender(identity)
+        return Color.clear
+    }
+}
+
+private struct FontRegistrationThemeHost: View {
+    @ObservedObject var model: LifecycleModel
+    let resolver: CountingModeResolver
+    let fontURL: URL
+    let onRender: ((identity: UUID, revision: Int)) -> Void
+
+    var body: some View {
+        FontRegistrationProbe(onRender: onRender)
+            .theme(
+                model.theme,
+                modeResolver: resolver,
+                fontURLs: [fontURL]
+            )
+    }
+}
+
+private struct FontRegistrationProbe: View {
+    @Environment(\.themeFontRegistration) private var fontRegistration
+    @State private var identity = UUID()
+
+    let onRender: ((identity: UUID, revision: Int)) -> Void
+
+    var body: some View {
+        onRender((identity, fontRegistration.revision))
         return Color.clear
     }
 }
