@@ -86,10 +86,31 @@ private func commands(
                 "--output-file", outputURL.path,
                 "--template", template.rawValue,
             ],
-            inputFiles: templateInputs,
+            inputFiles: dependencyURLs(for: templateInputs),
             outputFiles: [outputURL]
         )
     }
+}
+
+// Asset aliases depend on names throughout the catalogue, not only its root.
+// Track every directory so nested additions, removals, and renames invalidate
+// the command without making image pixel changes regenerate unchanged aliases.
+private func dependencyURLs(for inputs: [URL]) -> [URL] {
+    var dependencies = Set(inputs)
+    for input in inputs where input.pathExtension.caseInsensitiveCompare("xcassets") == .orderedSame {
+        guard let enumerator = FileManager.default.enumerator(
+            at: input,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { continue }
+
+        for case let url as URL in enumerator {
+            if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+                dependencies.insert(url)
+            }
+        }
+    }
+    return dependencies.sorted { $0.path < $1.path }
 }
 
 private func discoveredInputs(in urls: [URL]) -> [GeneratorInput] {
