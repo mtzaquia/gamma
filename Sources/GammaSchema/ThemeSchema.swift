@@ -262,13 +262,8 @@ public struct RawColor: Decodable, Hashable, Sendable {
         /// Creates a color mode from an eight-digit `#RRGGBBAA` value.
         /// Returns `nil` instead of substituting a color when the input is malformed.
         public init?(hexa: String) {
-            let sanitized = hexa
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .replacingOccurrences(of: "#", with: "")
-
-            var rgba: UInt64 = 0
-            guard sanitized.count == 8,
-                  Scanner(string: sanitized).scanHexInt64(&rgba)
+            guard let sanitized = themeHexDigits(hexa, count: 8),
+                  let rgba = UInt64(sanitized, radix: 16)
             else {
                 return nil
             }
@@ -512,4 +507,15 @@ private extension Array where Element == ThemeValidationIssue {
             }
         }
     }
+}
+
+/// Normalizes an optional leading hash and surrounding whitespace, while
+/// requiring every remaining character to be an ASCII hexadecimal digit.
+package func themeHexDigits(_ value: String, count: Int) -> String? {
+    var digits = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    if digits.hasPrefix("#") { digits.removeFirst() }
+    guard digits.utf8.count == count,
+          digits.utf8.allSatisfy({ (48...57).contains($0) || (65...70).contains($0) || (97...102).contains($0) })
+    else { return nil }
+    return digits
 }

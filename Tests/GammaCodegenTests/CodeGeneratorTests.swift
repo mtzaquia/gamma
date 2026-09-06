@@ -48,6 +48,19 @@ struct CodeGeneratorTests {
         }
     }
 
+    @Test("Group documentation keeps newline and control characters inside comments")
+    func groupCommentsAreSanitized() throws {
+        try withTemporaryDirectory { directory in
+            let input = directory.appendingPathComponent("theme.json")
+            let group = "test\nBAD SWIFT\r\nend\u{0}"
+            try write(validThemeDocument(units: ["\(group)/small": token(group: group)]), to: input)
+            let source = try GammaCodeGenerator.generate(inputURL: input, template: .tokens).source
+            #expect(source.contains("/// An alias for a token in the test\n    /// BAD SWIFT\n    /// end\\u{0} group."))
+            #expect(!source.contains("\nBAD SWIFT"))
+            #expect(!source.contains("\u{0}"))
+        }
+    }
+
     @Test("Fails when distinct tokens generate the same Swift name")
     func identifierCollision() throws {
         try withTemporaryDirectory { directory in

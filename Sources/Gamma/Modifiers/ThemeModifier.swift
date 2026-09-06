@@ -31,8 +31,8 @@ public extension View {
     /// The content mounts immediately using its inherited theme while Gamma
     /// loads the resource. Supplied fonts register asynchronously; text uses the
     /// system fallback until registration completes and then refreshes in place.
-    /// If the resource changes later, the installed theme remains active until
-    /// its replacement has loaded.
+    /// If the resource changes later, the installed theme, its resolver, and
+    /// its registered families remain active until the replacement has loaded.
     /// Use ``ThemeResource/load(from:)`` directly when loading failure is recoverable.
     ///
     /// - Parameters:
@@ -58,8 +58,8 @@ public extension View {
     /// The content mounts immediately using its inherited theme while Gamma
     /// loads the resource. Supplied fonts register asynchronously; text uses the
     /// system fallback until registration completes and then refreshes in place.
-    /// If the resource changes later, the installed theme remains active until
-    /// its replacement has loaded.
+    /// If the resource changes later, the installed theme, its resolver, and
+    /// its registered families remain active until the replacement has loaded.
     ///
     /// - Parameters:
     ///   - resource: The generated theme resource to install.
@@ -134,7 +134,10 @@ public extension View {
 
 private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResolving>: View {
     @Environment(\.theme) private var inheritedTheme
-    @State private var installedTheme: RawTheme?
+    @Environment(\.themeModeResolver) private var inheritedModeResolver
+    @Environment(\.themeExtensions) private var inheritedExtensions
+    @Environment(\.themeFontRegistration) private var inheritedFontRegistration
+    @State private var installed: ThemeInstallation?
     @State private var fontRegistrationRevision = 0
     @State private var completedFontInstallationID: ThemeInstallationID?
 
@@ -145,17 +148,18 @@ private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResol
     let fontURLs: [URL]
 
     var body: some View {
+        let active = activeInstallation
         content
-            .modifier(ThemeModifier(defaults: activeTheme.defaults))
-            .environment(\.theme, activeTheme)
-            .environment(\.themeModeResolver, AnyThemeModeResolver(modeResolver))
-            .environment(\.themeExtensions, extensions)
-            .environment(\.themeFontRegistration, fontRegistration)
+            .modifier(ThemeModifier(defaults: active.theme.defaults))
+            .environment(\.theme, active.theme)
+            .environment(\.themeModeResolver, active.modeResolver)
+            .environment(\.themeExtensions, active.extensions)
+            .environment(\.themeFontRegistration, active.fontRegistration)
             .task(id: installationID) {
                 let activeInstallationID = installationID
                 let theme = await source.load()
                 guard !Task.isCancelled else { return }
-                installedTheme = theme
+                installed = configuredInstallation(theme)
 
                 guard !fontURLs.isEmpty else { return }
                 let postScriptNames = await Registrar.registerFonts(at: fontURLs)
@@ -168,6 +172,7 @@ private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResol
                 withTransaction(transaction) {
                     fontRegistrationRevision &+= 1
                     completedFontInstallationID = activeInstallationID
+                    installed = configuredInstallation(theme)
                 }
             }
     }
@@ -184,15 +189,44 @@ private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResol
         self.modeResolver = modeResolver
         self.extensions = ThemeExtensionRegistrations(extensions)
         self.fontURLs = fontURLs
-        _installedTheme = State(initialValue: source.immediateTheme)
     }
 
-    private var activeTheme: RawTheme {
-        source.immediateTheme ?? installedTheme ?? inheritedTheme
+    private var activeInstallation: ThemeInstallation {
+        if let theme = source.immediateTheme {
+            return configuredInstallation(theme)
+        }
+        if let installed {
+            // Policy-only changes for an already loaded resource remain immediate.
+            return installed.id?.source == source.id
+                ? configuredInstallation(installed.theme)
+                : installed
+        }
+        return ThemeInstallation(
+            id: nil,
+            theme: inheritedTheme,
+            modeResolver: inheritedModeResolver,
+            extensions: inheritedExtensions,
+            fontRegistration: inheritedFontRegistration
+        )
+    }
+
+    private func configuredInstallation(_ theme: RawTheme) -> ThemeInstallation {
+        ThemeInstallation(
+            id: installationID,
+            theme: theme,
+            modeResolver: AnyThemeModeResolver(modeResolver),
+            extensions: extensions,
+            fontRegistration: fontRegistration
+        )
     }
 
     private var installationID: ThemeInstallationID {
-        ThemeInstallationID(source: source.id, fontURLs: fontURLs)
+        ThemeInstallationID(
+            source: source.id,
+            fontURLs: fontURLs,
+            modeResolver: AnyThemeModeResolver(modeResolver),
+            extensions: extensions.values.map(\.identifier)
+        )
     }
 
     private var fontRegistration: ThemeFontRegistrationContext {
@@ -231,9 +265,19 @@ private enum ThemeInstallationSource {
     }
 }
 
+private struct ThemeInstallation {
+    let id: ThemeInstallationID?
+    let theme: RawTheme
+    let modeResolver: AnyThemeModeResolver
+    let extensions: ThemeExtensionRegistrations
+    let fontRegistration: ThemeFontRegistrationContext
+}
+
 private struct ThemeInstallationID: Hashable {
     let source: ThemeInstallationSourceID
     let fontURLs: [URL]
+    let modeResolver: AnyThemeModeResolver
+    let extensions: [ObjectIdentifier]
 }
 
 private enum ThemeInstallationSourceID: Hashable {

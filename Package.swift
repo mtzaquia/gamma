@@ -47,7 +47,7 @@ let package = Package(
                 ),
                 permissions: [
                     .writeToPackageDirectory(
-                        reason: "This command writes generated Swift sources next to the selected inputs."
+                        reason: "This command writes and updates generated Swift sources for the selected targets."
                     ),
                 ]
             ),

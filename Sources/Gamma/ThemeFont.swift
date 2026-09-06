@@ -52,10 +52,6 @@ public struct ThemeFont: Hashable {
         scaledValue(baseLineHeight ?? baseFontSize, for: dynamicTypeSize)
     }
 
-    private func letterSpacing(for dynamicTypeSize: DynamicTypeSize) -> CGFloat {
-        scaledValue(baseLetterSpacing ?? 0, for: dynamicTypeSize)
-    }
-
     func lineSpacing(for dynamicTypeSize: DynamicTypeSize) -> CGFloat? {
         guard baseLineHeight != nil else { return nil }
         let candidate = lineHeight(for: dynamicTypeSize) - platformFontLineHeight(for: dynamicTypeSize)
@@ -65,8 +61,8 @@ public struct ThemeFont: Hashable {
 
     /// Returns the kerning (letter spacing) scaled to the given Dynamic Type size.
     public func kerning(for dynamicTypeSize: DynamicTypeSize) -> CGFloat {
-        guard baseLetterSpacing != nil else { return 0 }
-        let letterSpacingPercentage = letterSpacing(for: dynamicTypeSize) / 100
+        guard let baseLetterSpacing else { return 0 }
+        let letterSpacingPercentage = baseLetterSpacing / 100
         return fontSize(for: dynamicTypeSize) * letterSpacingPercentage
     }
 
@@ -84,7 +80,8 @@ public struct ThemeFont: Hashable {
             cascadeFontNames: cascadeFontNames,
             size: baseFontSize,
             dynamicTypeSize: dynamicTypeSize,
-            registrationRevision: registrationRevision
+            registrationRevision: registrationRevision,
+            textStyle: textStyle
         )
 
         if let cached = ThemeProxyCache.swiftUIFontCache[cacheKey] {
@@ -121,7 +118,8 @@ public struct ThemeFont: Hashable {
             cascadeFontNames: cascadeFontNames,
             size: baseFontSize,
             dynamicTypeSize: dynamicTypeSize,
-            registrationRevision: registrationRevision
+            registrationRevision: registrationRevision,
+            textStyle: textStyle
         )
 
         if let cached = ThemeProxyCache.uiFontCache[cacheKey] {
@@ -159,7 +157,8 @@ public struct ThemeFont: Hashable {
             cascadeFontNames: cascadeFontNames,
             size: baseFontSize,
             dynamicTypeSize: dynamicTypeSize,
-            registrationRevision: registrationRevision
+            registrationRevision: registrationRevision,
+            textStyle: textStyle
         )
 
         if let cached = ThemeProxyCache.nsFontCache[cacheKey] {

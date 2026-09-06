@@ -21,6 +21,11 @@
 //
 
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 import Testing
 @testable import Gamma
 
@@ -220,6 +225,29 @@ struct ThemeValidationTests {
     func malformedHexaIsRejected() {
         #expect(RawColor.Mode(hexa: "not-a-color") == nil)
         #expect(RawColor.Mode(hexa: "#112233CC")?.hex == "#112233")
+    }
+
+    @Test("Partial hexadecimal input and embedded hashes are rejected", arguments: [
+        "#112233ZZ", "#1ZZZZZZZ", "##112233CC", "11#2233CC", "#112233C", "#112233CCC"
+    ])
+    func partialHexaIsRejected(value: String) {
+        #expect(RawColor.Mode(hexa: value) == nil)
+    }
+
+    @Test("Eight-digit color normalization preserves RGB and alpha", arguments: ["#aAbBcC80", "aAbBcC80", " \n#aAbBcC80\t"])
+    func validHexa(value: String) throws {
+        let mode = try #require(RawColor.Mode(hexa: value))
+        #expect(mode.hex == "#aAbBcC")
+        #expect(mode.alpha == 128.0 / 255.0)
+    }
+
+    @Test("Platform colors reject partial hexadecimal input", arguments: ["#1234ZZ", "#1ZZZZZ", "##112233", "11#2233", "0x1234"])
+    func partialPlatformHexIsRejected(value: String) {
+#if canImport(UIKit)
+        #expect(UIColor(hex: value) == nil)
+#elseif canImport(AppKit)
+        #expect(NSColor(hex: value) == nil)
+#endif
     }
 
     private func decode(_ json: String) throws -> RawTheme {

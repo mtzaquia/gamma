@@ -1,0 +1,56 @@
+{
+  "id": "alternate",
+  "defaults": {
+    "font": "typography/body",
+    "primaryTextColor": "content/text"
+  },
+  "colors": {
+    "content/text": {
+      "name": "Text",
+      "group": "content",
+      "description": "",
+      "modes": {
+        "alternate": {
+          "hex": "#336699",
+          "alpha": 1
+        }
+      }
+    }
+  },
+  "fonts": {
+    "typography/body": {
+      "name": "Body",
+      "group": "typography",
+      "description": "ios:body",
+      "modes": {
+        "alternate": {
+          "fontSize": 16,
+          "fontName": "Helvetica",
+          "lineHeight": 20,
+          "letterSpacing": 0,
+          "textCase": "ORIGINAL"
+        }
+      }
+    }
+  },
+  "units": {
+    "spacing/default": {
+      "name": "Spacing",
+      "group": "spacing",
+      "description": "",
+      "modes": {
+        "alternate": 36,
+        "other": 48
+      }
+    }
+  },
+  "resourceExtras": {
+    "extra": {
+      "name": "Extra",
+      "group": "",
+      "modes": {
+        "alternate": 1
+      }
+    }
+  }
+}

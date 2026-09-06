@@ -621,7 +621,7 @@ private extension GammaCodeGenerator {
                     writer.line("nonisolated public static let name = \(swiftStringLiteral(group))")
                 }
                 writer.blankLine()
-                writer.line("/// An alias for a token in the \(group) group.")
+                writer.docComment("An alias for a token in the \(group) group.")
                 writer.line("typealias \(aliasType) = Theme.Alias<\(markerType)>")
             }
             writer.blankLine()
@@ -882,7 +882,11 @@ private struct SourceWriter {
 
     mutating func docComment(description: String?, key: String) {
         guard let description, !description.isEmpty else { return }
-        let text = "\(description) (\(key))"
+        docComment("\(description) (\(key))")
+    }
+
+    mutating func docComment(_ text: String) {
+        let text = text
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "")
         for lineValue in text.split(separator: "\n", omittingEmptySubsequences: false) {

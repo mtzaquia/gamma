@@ -38,27 +38,29 @@ struct ThemeTokenCacheKey: Hashable {
     let alias: String
 }
 
-/// Dynamic Type size and font-registration revision identify a concrete font.
-/// Text style is intentionally absent: the runtime scaling pipeline owns it.
+/// Includes the text style because each style has its own Dynamic Type curve.
 struct ThemeFontCacheKey: Hashable {
     let fontName: String
     let cascadeFontNames: [String]
     let size: CGFloat
     let dynamicTypeSize: DynamicTypeSize
     let registrationRevision: Int
+    let textStyle: ThemeFontTextStyle
 
     init(
         fontName: String,
         cascadeFontNames: [String],
         size: CGFloat,
         dynamicTypeSize: DynamicTypeSize,
-        registrationRevision: Int = 0
+        registrationRevision: Int = 0,
+        textStyle: ThemeFontTextStyle = .body
     ) {
         self.fontName = fontName
         self.cascadeFontNames = cascadeFontNames
         self.size = size
         self.dynamicTypeSize = dynamicTypeSize
         self.registrationRevision = registrationRevision
+        self.textStyle = textStyle
     }
 }
 

@@ -36,7 +36,12 @@ struct GammaGeneratePlugin: CommandPlugin {
         }
 
         try generateDiscoveredInputs(
-            context.package.sourceModules.map { $0.sourceFiles.map(\.url) },
+            context.package.sourceModules.map {
+                GenerationTarget(
+                    inputURLs: $0.sourceFiles.map(\.url),
+                    outputDirectory: $0.directoryURL.appendingPathComponent("Generated/Gamma", isDirectory: true)
+                )
+            },
             toolURL: toolURL
         )
     }
@@ -57,35 +62,43 @@ extension GammaGeneratePlugin: XcodeCommandPlugin {
         }
 
         try generateDiscoveredInputs(
-            context.xcodeProject.targets.map { $0.inputFiles.map(\.url) },
+            context.xcodeProject.targets.map {
+                GenerationTarget(
+                    inputURLs: $0.inputFiles.map(\.url),
+                    outputDirectory: context.xcodeProject.directoryURL
+                        .appendingPathComponent("Generated/Gamma", isDirectory: true)
+                        .appendingPathComponent($0.id, isDirectory: true)
+                )
+            },
             toolURL: toolURL
         )
     }
 }
 #endif
 
-private func generateDiscoveredInputs(_ inputGroups: [[URL]], toolURL: URL) throws {
-    let targetInputs = inputGroups
-        .map { discoveredInputs(in: $0) }
-        .filter { !$0.isEmpty }
-    guard !targetInputs.isEmpty else {
+private struct GenerationTarget {
+    let inputURLs: [URL]
+    let outputDirectory: URL
+}
+
+private func generateDiscoveredInputs(_ targets: [GenerationTarget], toolURL: URL) throws {
+    guard targets.contains(where: { !discoveredInputs(in: $0.inputURLs).isEmpty }) else {
         Diagnostics.error("No *.theme.json or .xcassets inputs were found.")
         return
     }
 
-    for inputs in targetInputs {
-        let outputDirectory = inputs[0].url
-            .deletingLastPathComponent()
-            .appendingPathComponent("Generated/Gamma", isDirectory: true)
+    for target in targets {
+        let inputs = discoveredInputs(in: target.inputURLs)
+        guard !inputs.isEmpty else { continue }
+        var outputURLs = Set<URL>()
 
         for template in GenerationTemplate.allCases {
             let templateInputs = inputs.filter { $0.template == template }.map(\.url)
             guard !templateInputs.isEmpty else { continue }
 
-            let outputName = templateInputs.count == 1
-                ? "\(outputStem(for: templateInputs[0]))+\(template.title).generated.swift"
-                : "Gamma+\(template.title).generated.swift"
-            let outputURL = outputDirectory.appendingPathComponent(outputName)
+            let outputURL = target.outputDirectory.appendingPathComponent(
+                "Gamma+\(template.title).generated.swift"
+            )
             let inputArguments = templateInputs.flatMap { ["--input", $0.path] }
             try run(
                 toolURL: toolURL,
@@ -94,15 +107,35 @@ private func generateDiscoveredInputs(_ inputGroups: [[URL]], toolURL: URL) thro
                     "--template", template.rawValue,
                 ]
             )
+            outputURLs.insert(outputURL.standardizedFileURL)
+        }
+
+        // Only retire generated sources after every replacement succeeded. The
+        // target's source list also finds legacy outputs beside renamed inputs.
+        let legacyDirectories = inputs.map {
+            $0.url.deletingLastPathComponent().appendingPathComponent("Generated/Gamma", isDirectory: true)
+        }
+        let directoryCandidates = (legacyDirectories + [target.outputDirectory]).flatMap {
+            (try? FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil)) ?? []
+        }
+        for url in Set(target.inputURLs + directoryCandidates) {
+            guard !outputURLs.contains(url.standardizedFileURL), isGeneratedOutput(url) else { continue }
+            try FileManager.default.removeItem(at: url)
         }
     }
 }
 
-private func outputStem(for url: URL) -> String {
+private func isGeneratedOutput(_ url: URL) -> Bool {
     let name = url.lastPathComponent
-        .replacingOccurrences(of: ".theme.json", with: "")
-        .replacingOccurrences(of: ".xcassets", with: "")
-    return String(name.map { $0.isLetter || $0.isNumber ? $0 : "-" })
+    let components = url.deletingLastPathComponent().pathComponents
+    let isGenerationDirectory = zip(components, components.dropFirst()).contains {
+        $0 == "Generated" && $1 == "Gamma"
+    }
+    guard name.hasSuffix("+Tokens.generated.swift") || name.hasSuffix("+Assets.generated.swift"),
+          isGenerationDirectory,
+          let source = try? String(contentsOf: url, encoding: .utf8)
+    else { return false }
+    return source.hasPrefix("// swiftlint:disable:next file_header\n// periphery:ignore:all\n#if canImport(Gamma)\n")
 }
 
 private func run(toolURL: URL, arguments: [String]) throws {

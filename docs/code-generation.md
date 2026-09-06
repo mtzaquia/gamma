@@ -44,7 +44,9 @@ swift package \
   generate-gamma
 ```
 
-With no arguments, the command discovers supported inputs target by target. For each target it writes one file per generated template under `Generated/Gamma` beside the first discovered input. A single input keeps an input-derived filename, while aggregated inputs use `Gamma+Tokens.generated.swift` or `Gamma+Assets.generated.swift`.
+With no arguments, the command discovers supported inputs target by target. Output names are always `Gamma+Tokens.generated.swift` and `Gamma+Assets.generated.swift`, so adding, removing, or renaming inputs does not change the output paths. SwiftPM output lives under `Generated/Gamma` in the source target directory. Xcode output lives under `Generated/Gamma/<target-id>` in the project directory; add those sources to the corresponding target when using a project with explicit file membership.
+
+After every template for a target generates successfully, the command removes obsolete Gamma-generated files found in that target’s source list or generation directories, including legacy input-derived filenames. Files without Gamma’s generated header are preserved. Explicit executable options continue to write only the requested outputs.
 
 Pass executable options after the command for explicit generation:
 

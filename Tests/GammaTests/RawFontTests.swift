@@ -21,6 +21,10 @@
 //
 
 import Testing
+import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 #if canImport(AppKit)
 import AppKit
 #endif
@@ -68,6 +72,44 @@ struct RawFontTests {
         #expect(themeFont.lineHeight(for: .large) == 24)
     }
 #endif
+
+    @Test("Percentage kerning scales once", arguments: [DynamicTypeSize.large, .accessibility3])
+    func percentageKerningScalesOnce(size: DynamicTypeSize) {
+        let font = makeFont(style: .body, size: 21.125, spacing: 10)
+#if canImport(UIKit)
+        let pointSize = font.uiFont(for: size).pointSize
+#else
+        let pointSize = font.nsFont(for: size).pointSize
+#endif
+        #expect(abs(font.kerning(for: size) - pointSize * 0.1) < 0.05)
+    }
+
+#if canImport(UIKit)
+    @Test("Concrete fonts retain each text style's scaling curve in either lookup order", arguments: [false, true])
+    func fontCacheSeparatesTextStyles(reverse: Bool) throws {
+        // Distinct sizes keep both orders independent of the process-wide caches.
+        let size: CGFloat = reverse ? 19.125 : 19.625
+        let styles: [(ThemeFontTextStyle, UIFont.TextStyle)] = reverse
+            ? [(.caption2, .caption2), (.body, .body)]
+            : [(.body, .body), (.caption2, .caption2)]
+        let traits = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraLarge)
+        let baseFont = try #require(UIFont(name: "Helvetica", size: size))
+        for (style, platformStyle) in styles {
+            let font = makeFont(style: style, size: size, spacing: 0)
+            let expected = UIFontMetrics(forTextStyle: platformStyle)
+                .scaledFont(for: baseFont, compatibleWith: traits)
+            #expect(font.uiFont(for: .accessibility3).pointSize == expected.pointSize)
+            #expect(font.font(for: .accessibility3) == Font(font.uiFont(for: .accessibility3)))
+        }
+    }
+#endif
+
+    private func makeFont(style: ThemeFontTextStyle, size: CGFloat, spacing: CGFloat) -> ThemeFont {
+        ThemeFont(
+            fontName: "Helvetica", cascadeFontNames: [], fontSize: size,
+            lineHeight: 30, letterSpacing: spacing, textCase: nil, textStyle: style
+        )
+    }
 
     private func textStyle(for description: String) -> ThemeFontTextStyle {
         RawFont(

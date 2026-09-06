@@ -20,51 +20,32 @@
 //  SOFTWARE.
 //
 
+import GammaSchema
 import SwiftUI
 
 #if canImport(UIKit)
 public extension UIColor {
-    /// Creates a UIKit color from a six-digit RGB hexadecimal string.
+    /// Creates a UIKit color from six RGB hexadecimal digits, with an optional leading `#`.
     convenience init?(hex: String) {
-        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
+        guard let digits = themeHexDigits(hex, count: 6),
+              let rgb = UInt64(digits, radix: 16)
+        else { return nil }
 
-        var rgb: UInt64 = 0
-
-        var r: CGFloat = 0.0
-        var g: CGFloat = 0.0
-        var b: CGFloat = 0.0
-
-        let length = hexSanitized.count
-
-        guard Scanner(string: hexSanitized).scanHexInt64(&rgb) else { return nil }
-
-        if length == 6 {
-            r = CGFloat((rgb & 0xFF0000) >> 16) / 255.0
-            g = CGFloat((rgb & 0x00FF00) >> 8) / 255.0
-            b = CGFloat(rgb & 0x0000FF) / 255.0
-
-        } else {
-            return nil
-        }
-
-        self.init(red: r, green: g, blue: b, alpha: 1)
+        self.init(
+            red: CGFloat((rgb & 0xFF0000) >> 16) / 255,
+            green: CGFloat((rgb & 0x00FF00) >> 8) / 255,
+            blue: CGFloat(rgb & 0x0000FF) / 255,
+            alpha: 1
+        )
     }
 }
 #elseif canImport(AppKit)
 public extension NSColor {
-    /// Creates an AppKit color from a six-digit RGB hexadecimal string.
+    /// Creates an AppKit color from six RGB hexadecimal digits, with an optional leading `#`.
     convenience init?(hex: String) {
-        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
-
-        var rgb: UInt64 = 0
-
-        guard hexSanitized.count == 6,
-              Scanner(string: hexSanitized).scanHexInt64(&rgb)
-        else {
-            return nil
-        }
+        guard let digits = themeHexDigits(hex, count: 6),
+              let rgb = UInt64(digits, radix: 16)
+        else { return nil }
 
         self.init(
             calibratedRed: CGFloat((rgb & 0xFF0000) >> 16) / 255,
