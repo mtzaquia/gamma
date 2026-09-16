@@ -21,6 +21,9 @@
 //
 
 import SwiftUI
+#if os(watchOS)
+import CoreText
+#endif
 #if canImport(UIKit)
 import UIKit
 #elseif canImport(AppKit)
@@ -88,7 +91,9 @@ public struct ThemeFont: Hashable {
             return cached
         }
 
-#if canImport(UIKit)
+#if os(watchOS)
+        let result = Font(watchFont(for: dynamicTypeSize))
+#elseif canImport(UIKit)
         let result = Font(uiFont(
             for: dynamicTypeSize,
             registrationRevision: registrationRevision
@@ -126,6 +131,14 @@ public struct ThemeFont: Hashable {
             return cached
         }
 
+        #if os(watchOS)
+        let pointSize = CTFontGetSize(watchFont(for: dynamicTypeSize))
+        let primary = UIFont(name: fontName, size: pointSize) ?? UIFont.systemFont(ofSize: pointSize)
+        let descriptor = primary.fontDescriptor.addingAttributes([
+            .cascadeList: cascadeFontNames.map { UIFontDescriptor(name: $0, size: pointSize) },
+        ])
+        let result = UIFont(descriptor: descriptor, size: pointSize)
+        #else
         let traitCollection = UITraitCollection(
             preferredContentSizeCategory: dynamicTypeSize.uiContentSizeCategory
         )
@@ -138,6 +151,7 @@ public struct ThemeFont: Hashable {
         let baseFont = UIFont(descriptor: combinedDescriptor, size: baseFontSize)
         let result = UIFontMetrics(forTextStyle: textStyle.uiTextStyle)
             .scaledFont(for: baseFont, compatibleWith: traitCollection)
+        #endif
 
         ThemeProxyCache.uiFontCache[cacheKey] = result
         return result
@@ -180,6 +194,22 @@ public struct ThemeFont: Hashable {
         return result
     }
 #endif
+
+    #if os(watchOS)
+    private func watchFont(for dynamicTypeSize: DynamicTypeSize) -> CTFont {
+        var environment = EnvironmentValues()
+        environment.dynamicTypeSize = dynamicTypeSize
+        let resolved = Font.custom(fontName, size: baseFontSize, relativeTo: textStyle.swiftUITextStyle)
+            .resolve(in: environment.fontResolutionContext)
+        guard !cascadeFontNames.isEmpty else { return resolved.ctFont }
+        let descriptor = CTFontDescriptorCreateCopyWithAttributes(CTFontCopyFontDescriptor(resolved.ctFont), [
+            kCTFontCascadeListAttribute: cascadeFontNames.map {
+                CTFontDescriptorCreateWithNameAndSize($0 as CFString, resolved.pointSize)
+            }
+        ] as CFDictionary)
+        return CTFontCreateWithFontDescriptor(descriptor, resolved.pointSize, nil)
+    }
+    #endif
 
     /// Returns an `AttributeContainer` with the font, kerning, and line height applied for the given Dynamic Type size.
     public func attributes(for dynamicTypeSize: DynamicTypeSize) -> AttributeContainer {
@@ -239,7 +269,13 @@ public struct ThemeFont: Hashable {
         _ value: CGFloat,
         for dynamicTypeSize: DynamicTypeSize
     ) -> CGFloat {
-#if canImport(UIKit)
+#if os(watchOS)
+        var environment = EnvironmentValues()
+        environment.dynamicTypeSize = dynamicTypeSize
+        let scaled = Font.custom(fontName, size: baseFontSize, relativeTo: textStyle.swiftUITextStyle)
+            .resolve(in: environment.fontResolutionContext).pointSize
+        return value * scaled / baseFontSize
+#elseif canImport(UIKit)
         let traits = UITraitCollection(
             preferredContentSizeCategory: dynamicTypeSize.uiContentSizeCategory
         )
@@ -260,7 +296,7 @@ public struct ThemeFont: Hashable {
     }
 }
 
-#if canImport(UIKit)
+#if canImport(UIKit) && !os(watchOS)
 private extension DynamicTypeSize {
     var uiContentSizeCategory: UIContentSizeCategory {
         switch self {
@@ -315,6 +351,26 @@ private extension DynamicTypeSize {
         case .accessibility4: 47 / 17
         case .accessibility5: 53 / 17
         @unknown default: 1
+        }
+    }
+}
+#endif
+
+#if os(watchOS)
+private extension ThemeFontTextStyle {
+    var swiftUITextStyle: Font.TextStyle {
+        switch self {
+        case .largeTitle: .largeTitle
+        case .title1: .title
+        case .title2: .title2
+        case .title3: .title3
+        case .headline: .headline
+        case .subheadline: .subheadline
+        case .body: .body
+        case .callout: .callout
+        case .footnote: .footnote
+        case .caption1: .caption
+        case .caption2: .caption2
         }
     }
 }

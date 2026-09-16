@@ -376,7 +376,11 @@ public extension ThemeProxy {
         dark: PlatformColor,
         cacheKey: ThemeTokenCacheKey
     ) -> Color {
-#if canImport(UIKit)
+#if os(watchOS)
+        // watchOS has no dynamic UIColor provider. ThemeCacheScope already includes
+        // the SwiftUI appearance, so each scheme resolves and caches independently.
+        let result = Color(uiColor: colorScheme == .dark ? dark : light)
+#elseif canImport(UIKit)
         let uiColor = UIColor { @Sendable trait in // @Sendable prevents a crash in SwiftUI.AsyncRenderer.
             switch trait.userInterfaceStyle {
             case .dark: dark

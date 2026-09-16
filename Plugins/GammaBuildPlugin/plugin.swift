@@ -75,7 +75,13 @@ private func commands(
         let templateInputs = inputs.filter { $0.template == template }.map(\.url)
         guard !templateInputs.isEmpty else { return nil }
 
-        let outputURL = workDirectoryURL.appendingPathComponent(
+        // Xcode invokes one package target for each SDK in a combined build.
+        // Keep generated files in the SDK-specific build directory, just like
+        // compiler intermediates, rather than claiming one shared output twice.
+        let outputDirectory = toolURL.path.contains("${BUILD_DIR}")
+            ? workDirectoryURL.appendingPathComponent("${CONFIGURATION}${EFFECTIVE_PLATFORM_NAME}")
+            : workDirectoryURL
+        let outputURL = outputDirectory.appendingPathComponent(
             "Gamma+\(template.title).generated.swift"
         )
         let inputArguments = templateInputs.flatMap { ["--input", $0.path] }

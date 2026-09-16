@@ -1,0 +1,61 @@
+name: GammaMultiPlatformProbe
+options:
+  minimumXcodeGenVersion: 2.46.0
+packages:
+  Gamma:
+    path: ../..
+  SharedUI:
+    path: SharedUI
+settings:
+  base:
+    SWIFT_VERSION: 6.3
+    CODE_SIGNING_ALLOWED: NO
+    GENERATE_INFOPLIST_FILE: YES
+    STRING_CATALOG_GENERATE_SYMBOLS: YES
+targets:
+  PhoneProbe:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [Phone]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.gamma.integration
+    dependencies:
+      - target: WatchProbe
+        embed: true
+      - package: SharedUI
+  WatchProbe:
+    type: application
+    platform: watchOS
+    deploymentTarget: "26.0"
+    sources: [Watch]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.gamma.integration.watch
+    info:
+      path: Watch-Info.plist
+      properties:
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.gamma.integration
+    dependencies:
+      - package: SharedUI
+  WatchFontTests:
+    type: bundle.unit-test
+    platform: watchOS
+    deploymentTarget: "26.0"
+    sources: [WatchTests]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.gamma.integration.watch.tests
+    dependencies:
+      - target: WatchProbe
+      - package: Gamma
+schemes:
+  PhoneProbe:
+    build:
+      targets:
+        PhoneProbe: all
+  WatchProbe:
+    build:
+      targets:
+        WatchProbe: all
+    test:
+      targets: [WatchFontTests]

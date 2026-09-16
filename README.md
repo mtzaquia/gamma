@@ -3,6 +3,7 @@
 [![Tests](https://github.com/mtzaquia/gamma/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mtzaquia/gamma/actions/workflows/tests.yml)
 [![Swift 6.3](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://www.swift.org/)
 [![iOS 17+](https://img.shields.io/badge/iOS-17%2B-blue.svg)](https://github.com/mtzaquia/gamma/blob/main/Package.swift)
+[![watchOS 26+](https://img.shields.io/badge/watchOS-26%2B-blue.svg)](https://github.com/mtzaquia/gamma/blob/main/Package.swift)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue.svg)](https://github.com/mtzaquia/gamma/blob/main/Package.swift)
 ![Class A](https://img.shields.io/badge/class-A-gold)
 
@@ -36,7 +37,7 @@ var body: some View {
 
 ## Install
 
-Gamma 2.0.0 supports iOS 17+ and macOS 14+, and uses the Swift 6.3 package format.
+Gamma supports iOS 17+, macOS 14+, and watchOS 26+, and uses the Swift 6.3 package format.
 
 ```swift
 dependencies: [
