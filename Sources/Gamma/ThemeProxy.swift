@@ -376,7 +376,9 @@ public extension ThemeProxy {
         dark: PlatformColor,
         cacheKey: ThemeTokenCacheKey
     ) -> Color {
-#if canImport(UIKit)
+#if os(watchOS)
+        let result = Color(uiColor: colorScheme == .dark ? dark : light)
+#elseif canImport(UIKit)
         let uiColor = UIColor { @Sendable trait in // @Sendable prevents a crash in SwiftUI.AsyncRenderer.
             switch trait.userInterfaceStyle {
             case .dark: dark

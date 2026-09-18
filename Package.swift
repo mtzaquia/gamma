@@ -11,7 +11,7 @@ let defaultSwiftSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "Gamma",
-    platforms: [.iOS(.v17), .macOS(.v14)],
+    platforms: [.iOS(.v17), .macOS(.v14), .watchOS("26.0")],
     products: [
         .library(name: "Gamma", targets: ["Gamma"]),
         .executable(name: "gamma-codegen", targets: ["gamma-codegen"]),
