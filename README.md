@@ -43,7 +43,7 @@ Gamma supports iOS 17+, macOS 14+, and watchOS 26+, and uses the Swift 6.3 packa
 dependencies: [
   .package(
     url: "https://github.com/mtzaquia/gamma.git",
-    from: "2.0.0"
+    from: "2.1.0"
   ),
 ]
 ```
