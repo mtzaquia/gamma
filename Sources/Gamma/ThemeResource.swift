@@ -22,8 +22,14 @@
 
 import GammaSchema
 import Foundation
+import os
 
 /// A generated reference to a bundled `*.theme.json` file.
+///
+/// When installed with a view's `theme` modifier, the theme is available
+/// immediately: Gamma decodes it synchronously once per resource and bundle,
+/// then reuses the cached value. Supplied fonts register asynchronously and
+/// refresh text in place. Resource changes activate on the same view update.
 public struct ThemeResource: Hashable, Sendable {
     /// The complete resource filename, including `.theme.json`.
     public let fileName: String
@@ -76,49 +82,39 @@ nonisolated struct ThemeResourceCacheKey: Hashable, Sendable {
     let bundleURL: URL
 }
 
-enum ThemeResourceCache {
-    private static let store = ThemeResourceStore()
+nonisolated enum ThemeResourceCache {
+    private static let themes = OSAllocatedUnfairLock(initialState: [ThemeResourceCacheKey: RawTheme]())
 
-    static func count() async -> Int {
-        await store.count
+    static func count() -> Int {
+        themes.withLock { $0.count }
     }
 
-    static func removeAll() async {
-        await store.removeAll()
+    static func removeAll() {
+        themes.withLock { $0.removeAll() }
     }
 
-    static func load(_ resource: ThemeResource, from bundle: Bundle) async -> RawTheme {
-        await store.load(resource, from: bundle)
-    }
-}
-
-private actor ThemeResourceStore {
-    private var themes: [ThemeResourceCacheKey: RawTheme] = [:]
-
-    var count: Int { themes.count }
-
-    func removeAll() {
-        themes.removeAll()
-    }
-
-    func load(_ resource: ThemeResource, from bundle: Bundle) -> RawTheme {
+    static func load(_ resource: ThemeResource, from bundle: Bundle) -> RawTheme {
         let key = ThemeResourceCacheKey(
             fileName: resource.fileName,
             bundleURL: bundle.bundleURL.standardizedFileURL
         )
-        if let theme = themes[key] {
-            return theme
-        }
+        // Keep the miss, decode, and insertion in one critical section so every
+        // caller receives the same decoded identity, including concurrent loads.
+        return themes.withLock { themes in
+            if let theme = themes[key] {
+                return theme
+            }
 
-        do {
-            let theme = try ThemeResource.load(fileName: resource.fileName, from: bundle)
-            themes[key] = theme
-            return theme
-        } catch {
-            preconditionFailure(
-                "Gamma could not install theme resource "
-                    + "\(resource.fileName.debugDescription): \(error.localizedDescription)"
-            )
+            do {
+                let theme = try ThemeResource.load(fileName: resource.fileName, from: bundle)
+                themes[key] = theme
+                return theme
+            } catch {
+                preconditionFailure(
+                    "Gamma could not install theme resource "
+                        + "\(resource.fileName.debugDescription): \(error.localizedDescription)"
+                )
+            }
         }
     }
 }

@@ -66,7 +66,7 @@ struct ExampleApp: App {
 }
 ```
 
-The modifier loads and caches the generated bundled resource. A missing or malformed bundled theme fails immediately as an application configuration error; use the explicit throwing resource API only when the app needs recoverable loading UI.
+The modifier decodes the generated bundled resource synchronously on first use and caches it by resource and bundle, so all tokens are available on the subtree’s first body evaluation. Changing resources activates the new theme on the same view update. Supplied fonts register asynchronously and refresh text in place. A missing or malformed bundled theme fails immediately as an application configuration error; use the explicit throwing resource API only when the app needs recoverable loading UI.
 
 Read the active theme in any descendant view with `@ThemeReader`. It resolves generated aliases against the current theme and SwiftUI environment.
 

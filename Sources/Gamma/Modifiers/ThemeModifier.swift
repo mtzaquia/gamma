@@ -28,11 +28,11 @@ public extension View {
     ///
     /// The decoded value is cached by resource and bundle so repeated SwiftUI
     /// body evaluations do not reread the JSON or create new theme identities.
-    /// The content mounts immediately using its inherited theme while Gamma
-    /// loads the resource. Supplied fonts register asynchronously; text uses the
-    /// system fallback until registration completes and then refreshes in place.
-    /// If the resource changes later, the installed theme, its resolver, and
-    /// its registered families remain active until the replacement has loaded.
+    /// The theme is available on the subtree's first body evaluation. The first
+    /// use decodes the local JSON synchronously on the main actor; later uses
+    /// reuse the cached value. Supplied fonts register asynchronously; text uses
+    /// the system fallback until registration completes and refreshes in place.
+    /// Resource, resolver, and family changes activate on the same view update.
     /// Use ``ThemeResource/load(from:)`` directly when loading failure is recoverable.
     ///
     /// - Parameters:
@@ -55,11 +55,12 @@ public extension View {
 
     /// Loads a generated bundled theme with custom mode and family support.
     ///
-    /// The content mounts immediately using its inherited theme while Gamma
-    /// loads the resource. Supplied fonts register asynchronously; text uses the
-    /// system fallback until registration completes and then refreshes in place.
-    /// If the resource changes later, the installed theme, its resolver, and
-    /// its registered families remain active until the replacement has loaded.
+    /// The decoded value is cached by resource and bundle, preserving its identity.
+    /// The theme is available on the subtree's first body evaluation. The first
+    /// use decodes the local JSON synchronously on the main actor; later uses
+    /// reuse the cached value. Supplied fonts register asynchronously; text uses
+    /// the system fallback until registration completes and refreshes in place.
+    /// Resource, resolver, and family changes activate on the same view update.
     ///
     /// - Parameters:
     ///   - resource: The generated theme resource to install.
@@ -133,34 +134,25 @@ public extension View {
 }
 
 private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResolving>: View {
-    @Environment(\.theme) private var inheritedTheme
-    @Environment(\.themeModeResolver) private var inheritedModeResolver
-    @Environment(\.themeExtensions) private var inheritedExtensions
-    @Environment(\.themeFontRegistration) private var inheritedFontRegistration
-    @State private var installed: ThemeInstallation?
     @State private var fontRegistrationRevision = 0
     @State private var completedFontInstallationID: ThemeInstallationID?
 
     let content: Content
+    let theme: RawTheme
     let source: ThemeInstallationSource
     let modeResolver: ModeResolver
     let extensions: ThemeExtensionRegistrations
     let fontURLs: [URL]
 
     var body: some View {
-        let active = activeInstallation
         content
-            .modifier(ThemeModifier(defaults: active.theme.defaults))
-            .environment(\.theme, active.theme)
-            .environment(\.themeModeResolver, active.modeResolver)
-            .environment(\.themeExtensions, active.extensions)
-            .environment(\.themeFontRegistration, active.fontRegistration)
+            .modifier(ThemeModifier(defaults: theme.defaults))
+            .environment(\.theme, theme)
+            .environment(\.themeModeResolver, AnyThemeModeResolver(modeResolver))
+            .environment(\.themeExtensions, extensions)
+            .environment(\.themeFontRegistration, fontRegistration)
             .task(id: installationID) {
                 let activeInstallationID = installationID
-                let theme = await source.load()
-                guard !Task.isCancelled else { return }
-                installed = configuredInstallation(theme)
-
                 guard !fontURLs.isEmpty else { return }
                 let postScriptNames = await Registrar.registerFonts(at: fontURLs)
 
@@ -172,7 +164,6 @@ private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResol
                 withTransaction(transaction) {
                     fontRegistrationRevision &+= 1
                     completedFontInstallationID = activeInstallationID
-                    installed = configuredInstallation(theme)
                 }
             }
     }
@@ -185,39 +176,11 @@ private struct ThemeInstallationView<Content: View, ModeResolver: ThemeModeResol
         fontURLs: [URL]
     ) {
         self.content = content
+        self.theme = source.immediateTheme
         self.source = source
         self.modeResolver = modeResolver
         self.extensions = ThemeExtensionRegistrations(extensions)
         self.fontURLs = fontURLs
-    }
-
-    private var activeInstallation: ThemeInstallation {
-        if let theme = source.immediateTheme {
-            return configuredInstallation(theme)
-        }
-        if let installed {
-            // Policy-only changes for an already loaded resource remain immediate.
-            return installed.id?.source == source.id
-                ? configuredInstallation(installed.theme)
-                : installed
-        }
-        return ThemeInstallation(
-            id: nil,
-            theme: inheritedTheme,
-            modeResolver: inheritedModeResolver,
-            extensions: inheritedExtensions,
-            fontRegistration: inheritedFontRegistration
-        )
-    }
-
-    private func configuredInstallation(_ theme: RawTheme) -> ThemeInstallation {
-        ThemeInstallation(
-            id: installationID,
-            theme: theme,
-            modeResolver: AnyThemeModeResolver(modeResolver),
-            extensions: extensions,
-            fontRegistration: fontRegistration
-        )
     }
 
     private var installationID: ThemeInstallationID {
@@ -250,27 +213,14 @@ private enum ThemeInstallationSource {
         }
     }
 
-    var immediateTheme: RawTheme? {
-        guard case let .rawTheme(theme) = self else { return nil }
-        return theme
-    }
-
-    func load() async -> RawTheme {
+    var immediateTheme: RawTheme {
         switch self {
         case let .rawTheme(theme):
             theme
         case let .resource(resource, bundle):
-            await ThemeResourceCache.load(resource, from: bundle)
+            ThemeResourceCache.load(resource, from: bundle)
         }
     }
-}
-
-private struct ThemeInstallation {
-    let id: ThemeInstallationID?
-    let theme: RawTheme
-    let modeResolver: AnyThemeModeResolver
-    let extensions: ThemeExtensionRegistrations
-    let fontRegistration: ThemeFontRegistrationContext
 }
 
 private struct ThemeInstallationID: Hashable {

@@ -20,52 +20,115 @@
 //  SOFTWARE.
 //
 
-#if canImport(UIKit)
+import Foundation
 import SwiftUI
 import Testing
+#if canImport(UIKit)
+import CoreText
 import UIKit
+#endif
 @testable import Gamma
 
 @Suite("Theme resource modifier", .serialized)
 struct ThemeResourceModifierTests {
-    @Test("Bundled resources mount immediately and resolve without replacing content")
-    func bundledResourceModifier() async {
-        await ThemeResourceCache.removeAll()
+    @Test("Synchronous cache hits retain the single decoded identity")
+    func cacheRetainsIdentity() throws {
+        ThemeResourceCache.removeAll()
         let resource = ThemeResource(fileName: "Modifier.theme.json")
-        var observations: [(unit: CGFloat, identity: UUID, registration: ThemeFontRegistrationContext)] = []
+        let first = ThemeResourceCache.load(resource, from: .module)
+        let second = ThemeResourceCache.load(resource, from: .module)
 
-        let view = ResourceUnitProbe { observations.append($0) }
-            .theme(resource, bundle: .module)
-        #expect(await ThemeResourceCache.count() == 0)
-
-        let controller = UIHostingController(rootView: view)
-        let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = controller
-        window.makeKeyAndVisible()
-        window.layoutIfNeeded()
-        let initialIdentity = observations.first?.identity
-
-        for _ in 0..<20 where observations.last?.unit != 12 {
-            await Task.yield()
-            window.layoutIfNeeded()
-        }
-
-        let first = await ThemeResourceCache.load(resource, from: .module)
-        let second = await ThemeResourceCache.load(resource, from: .module)
-
-        #expect(initialIdentity != nil)
-        #expect(observations.first?.unit == 0)
-        #expect(observations.last?.unit == 12)
-        #expect(observations.last?.identity == initialIdentity)
-        #expect(await ThemeResourceCache.count() == 1)
         #expect(first == second)
-        window.isHidden = true
+        #expect(ThemeResourceCache.count() == 1)
+        // Each uncached decode has a distinct identity, even for the same JSON.
+        #expect(try resource.load(from: .module) != first)
+
+        ThemeResourceCache.removeAll()
+        #expect(ThemeResourceCache.count() == 0)
+        #expect(ThemeResourceCache.load(resource, from: .module) != first)
     }
 
-    @Test("Nested resources inherit the complete policy until their resource loads")
-    func nestedResourceRetainsInheritedPolicy() async throws {
+    @Test("Concurrent cache misses all receive one decoded identity")
+    func concurrentCacheAccess() async throws {
+        ThemeResourceCache.removeAll()
+        let resource = ThemeResource(fileName: "Modifier.theme.json")
+        let bundle = Bundle.module
+        let themes = await withTaskGroup(of: RawTheme.self, returning: [RawTheme].self) { group in
+            for _ in 0..<64 {
+                group.addTask { ThemeResourceCache.load(resource, from: bundle) }
+            }
+            var results: [RawTheme] = []
+            for await theme in group {
+                results.append(theme)
+            }
+            return results
+        }
+
+        let first = try #require(themes.first)
+        #expect(themes.count == 64)
+        #expect(themes.allSatisfy { $0 == first })
+        #expect(ThemeResourceCache.count() == 1)
+    }
+
+    @Test("Cache keys separate bundles and normalize their URLs")
+    func cacheKeysIncludeBundle() throws {
+        ThemeResourceCache.removeAll()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let copiedURL = directory.appendingPathComponent("Copy.bundle")
+        try FileManager.default.copyItem(at: Bundle.module.bundleURL, to: copiedURL)
+        let copiedBundle = try #require(Bundle(url: copiedURL))
+        let equivalentBundle = try #require(Bundle(url: directory.appendingPathComponent("./Copy.bundle")))
+        let resource = ThemeResource(fileName: "Modifier.theme.json")
+        let original = ThemeResourceCache.load(resource, from: .module)
+        let copy = ThemeResourceCache.load(resource, from: copiedBundle)
+
+        #expect(original != copy)
+        #expect(ThemeResourceCache.load(resource, from: equivalentBundle) == copy)
+        #expect(ThemeResourceCache.count() == 2)
+    }
+
+#if canImport(UIKit)
+    @Test("A bundled resource resolves real tokens on its first render without awaiting a task")
+    func bundledResourceModifier() throws {
+        ThemeResourceCache.removeAll()
+        let resource = ThemeResource(fileName: "Modifier.theme.json")
+        var observations: [ResourceObservation] = []
+        let view = ResourceUnitProbe { observations.append($0) }
+            .theme(resource, bundle: .module)
+        #expect(ThemeResourceCache.count() == 1)
+
+        let window = makeWindow(view)
+        defer { window.isHidden = true }
+        let first = try #require(observations.first)
+        #expect(first.unit == 12)
+        #expect(first.colorAlpha == 1)
+        #expect(first.theme == ThemeResourceCache.load(resource, from: .module))
+        #expect(first.registration == .ready)
+    }
+
+    @Test("Separate installations share a cached RawTheme identity")
+    func installationsShareIdentity() throws {
+        ThemeResourceCache.removeAll()
+        let resource = ThemeResource(fileName: "Modifier.theme.json")
+        var observations: [ResourceObservation] = []
+        let window = makeWindow(VStack {
+            ResourceUnitProbe { observations.append($0) }.theme(resource, bundle: .module)
+            ResourceUnitProbe { observations.append($0) }.theme(resource, bundle: .module)
+        })
+        defer { window.isHidden = true }
+        #expect(Set(observations.map(\.identity)).count == 2)
+        let first = try #require(observations.first)
+        #expect(observations.allSatisfy { $0.theme == first.theme && $0.unit == 12 })
+        #expect(ThemeResourceCache.count() == 1)
+    }
+
+    @Test("Nested resources install their own complete policy on the first render")
+    func nestedResourceInstallsPolicyImmediately() throws {
+        ThemeResourceCache.removeAll()
         let inherited = try ThemeResource(fileName: "Modifier.theme.json").load(from: .module)
-        var observations: [(unit: CGFloat, identity: UUID, registration: ThemeFontRegistrationContext)] = []
+        var observations: [ResourceObservation] = []
         let view = ResourceUnitProbe { observations.append($0) }
             .theme(
                 ThemeResource(fileName: "Alternate.theme.json"), bundle: .module,
@@ -76,52 +139,104 @@ struct ThemeResourceModifierTests {
             .environment(\.themeFontRegistration, .init(revision: 7, isPending: true))
         let window = makeWindow(view)
         defer { window.isHidden = true }
-        #expect(observations.first?.unit == 12)
-        #expect(observations.first?.registration == .init(revision: 7, isPending: true))
-        await render(window, until: { observations.last?.unit == 36 })
-        #expect(observations.last?.unit == 36)
-        #expect(observations.last?.registration == .ready)
-        #expect(Set(observations.map(\.identity)).count == 1)
-        #expect(observations.allSatisfy { [12, 36].contains($0.unit) })
+        let first = try #require(observations.first)
+        #expect(first.unit == 36)
+        #expect(first.colorAlpha == 1)
+        #expect(first.extra == 1)
+        #expect(first.registration == .ready)
+        #expect(observations.allSatisfy { $0.unit == 36 })
     }
 
-    @Test("Resource and policy replacements activate together and preserve descendant state")
-    func resourceReplacementRetainsPolicy() async throws {
+    @Test("Resource and policy replacements activate in the same update and preserve state")
+    func resourceReplacementInstallsPolicyImmediately() throws {
+        ThemeResourceCache.removeAll()
         let model = ResourceSelection()
-        var observations: [(unit: CGFloat, identity: UUID, registration: ThemeFontRegistrationContext)] = []
-        let window = makeWindow(ResourceSwitchingView(model: model) { observations.append($0) })
+        var observations: [ResourceObservation] = []
+        let controller = UIHostingController(rootView: ResourceSwitchingView(model: model) { observations.append($0) })
+        let window = makeWindow(controller: controller)
         defer { window.isHidden = true }
-        await render(window, until: { observations.last?.unit == 12 })
-        #expect(observations.last?.unit == 12)
+        let first = try #require(observations.first)
+        #expect(first.unit == 12)
         let count = observations.count
+
         model.alternate = true
+        controller.rootView = ResourceSwitchingView(model: model) { observations.append($0) }
+        controller.view.setNeedsLayout()
         window.layoutIfNeeded()
-        await render(window, until: { observations.last?.unit == 36 })
-        #expect(observations.last?.unit == 36)
-        #expect(observations.dropFirst(count).allSatisfy { [12, 36].contains($0.unit) })
+        #expect(observations.count > count)
+        #expect(observations.dropFirst(count).allSatisfy { $0.unit == 36 && $0.extra == 1 })
+        #expect(observations.last?.theme != first.theme)
         #expect(Set(observations.map(\.identity)).count == 1)
 
-        // A policy-only update to an already loaded resource must still take effect.
+        // A policy-only change also takes effect without a task or another decode.
+        let replacementCount = observations.count
         model.otherUnitMode = true
-        await render(window, until: { observations.last?.unit == 48 })
-        #expect(observations.last?.unit == 48)
+        controller.rootView = ResourceSwitchingView(model: model) { observations.append($0) }
+        controller.view.setNeedsLayout()
+        window.layoutIfNeeded()
+        #expect(observations.count > replacementCount)
+        #expect(observations.dropFirst(replacementCount).allSatisfy { $0.unit == 48 })
+        #expect(ThemeResourceCache.count() == 2)
+    }
+
+    @Test("Bundled font registration refreshes once and preserves theme and descendant state")
+    func fontRegistrationRefreshesInPlace() async throws {
+        let font = UIFont.systemFont(ofSize: 12)
+        let coreTextFont = CTFontCreateWithName(font.fontName as CFString, font.pointSize, nil)
+        let fontURL = try #require(CTFontCopyAttribute(coreTextFont, kCTFontURLAttribute) as? URL)
+        let model = ResourceSelection()
+        var observations: [ResourceObservation] = []
+        let controller = UIHostingController(rootView: ResourceSwitchingView(
+            model: model, fontURLs: [fontURL]
+        ) { observations.append($0) })
+        let window = makeWindow(controller: controller)
+        defer { window.isHidden = true }
+        let first = try #require(observations.first)
+        #expect(first.unit == 12)
+        #expect(first.registration == .init(revision: 0, isPending: true))
+
+        for _ in 0..<100 where observations.last?.registration.isPending != false {
+            try await Task.sleep(for: .milliseconds(10))
+            window.layoutIfNeeded()
+        }
+        #expect(observations.last?.registration == .init(revision: 1, isPending: false))
+
+        // A subsequent body evaluation must not restart the completed task.
+        model.renderPass += 1
+        controller.rootView = ResourceSwitchingView(model: model, fontURLs: [fontURL]) { observations.append($0) }
+        controller.view.setNeedsLayout()
+        window.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(30))
+        window.layoutIfNeeded()
+        #expect(observations.last?.renderPass == 1)
+        #expect(observations.last?.registration == .init(revision: 1, isPending: false))
+        #expect(observations.allSatisfy { $0.unit == 12 && $0.theme == first.theme })
+        #expect(Set(observations.map(\.identity)).count == 1)
     }
 
     private func makeWindow(_ view: some View) -> UIWindow {
-        let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = UIHostingController(rootView: view)
+        makeWindow(controller: UIHostingController(rootView: view))
+    }
+
+    private func makeWindow(controller: UIViewController) -> UIWindow {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = controller
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         return window
     }
+#endif
+}
 
-    private func render(_ window: UIWindow, until ready: () -> Bool) async {
-        for _ in 0..<100 where !ready() {
-            try? await Task.sleep(for: .milliseconds(10))
-            window.layoutIfNeeded()
-        }
-    }
-
+#if canImport(UIKit)
+private struct ResourceObservation {
+    let unit: CGFloat
+    let colorAlpha: CGFloat
+    let extra: Int?
+    let theme: RawTheme
+    let identity: UUID
+    let registration: ThemeFontRegistrationContext
+    let renderPass: Int
 }
 
 nonisolated private enum ResourceUnitGroup: ThemeTokenGroup {
@@ -134,13 +249,26 @@ private typealias ResourceUnitAlias = Theme.Alias<ResourceUnitGroup>
 private struct ResourceUnitProbe: View {
     @ThemeReader private var theme
     @State private var identity = UUID()
+    @Environment(\.theme) private var rawTheme
     @Environment(\.themeFontRegistration) private var registration
 
-    let onResolve: ((unit: CGFloat, identity: UUID, registration: ThemeFontRegistrationContext)) -> Void
+    var renderPass = 0
+    let onResolve: (ResourceObservation) -> Void
 
     var body: some View {
         let value = theme.unit(ResourceUnitAlias(rawValue: "spacing/default"))
-        onResolve((value, identity, registration))
+        let color = UIColor(theme.color(Theme.Alias<Theme.Colors>(rawValue: "content/text")))
+        let extra = rawTheme.extensionPayloads[ResourceExtras.key] == nil
+            ? nil : theme.resolve(Theme.Alias<ResourceExtras>(rawValue: "extra"))
+        onResolve(ResourceObservation(
+            unit: value,
+            colorAlpha: color.cgColor.alpha,
+            extra: extra,
+            theme: rawTheme,
+            identity: identity,
+            registration: registration,
+            renderPass: renderPass
+        ))
         return Color.clear
     }
 }
@@ -148,19 +276,22 @@ private struct ResourceUnitProbe: View {
 @Observable private final class ResourceSelection {
     var alternate = false
     var otherUnitMode = false
+    var renderPass = 0
 }
 
 private struct ResourceSwitchingView: View {
     let model: ResourceSelection
-    let onResolve: ((unit: CGFloat, identity: UUID, registration: ThemeFontRegistrationContext)) -> Void
+    var fontURLs: [URL] = []
+    let onResolve: (ResourceObservation) -> Void
 
     var body: some View {
-        ResourceUnitProbe(onResolve: onResolve)
+        ResourceUnitProbe(renderPass: model.renderPass, onResolve: onResolve)
             .theme(
                 ThemeResource(fileName: model.alternate ? "Alternate.theme.json" : "Modifier.theme.json"),
                 bundle: .module,
                 modeResolver: ResourceModeResolver(alternate: model.alternate, otherUnitMode: model.otherUnitMode),
-                extensions: model.alternate ? [ThemeExtensionRegistration(ResourceExtras.self)] : []
+                extensions: model.alternate ? [ThemeExtensionRegistration(ResourceExtras.self)] : [],
+                fontURLs: fontURLs
             )
     }
 }

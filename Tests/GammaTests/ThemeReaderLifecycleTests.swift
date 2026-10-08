@@ -161,8 +161,8 @@ struct ThemeReaderLifecycleTests {
         window.layoutIfNeeded()
         let initialIdentity = try #require(observations.first?.identity)
 
-        for _ in 0..<30 where observations.last?.revision == 0 {
-            await Task.yield()
+        for _ in 0..<100 where observations.last?.revision == 0 {
+            try await Task.sleep(for: .milliseconds(10))
             window.layoutIfNeeded()
         }
 
